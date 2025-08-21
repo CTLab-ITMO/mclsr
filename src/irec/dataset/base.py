@@ -268,6 +268,7 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
             self._test_sampler,
         )
     
+    # TODO bad, need move to base class
     @property
     def meta(self):
         return {
@@ -292,7 +293,6 @@ class GraphDataset(BaseDataset, config_name='graph'):
         self._use_user_graph = use_user_graph
         self._use_item_graph = use_item_graph
         self._neighborhood_size = neighborhood_size
-        # self._max_sequence_length = dataset.max_sequence_length
 
         self._num_users = dataset.num_users
         self._num_items = dataset.num_items
@@ -548,6 +548,8 @@ class GraphDataset(BaseDataset, config_name='graph'):
     def get_samplers(self):
         return self._dataset.get_samplers()
 
+
+    # TODO bad, need move to base class
     @property
     def meta(self):
         meta = {
@@ -582,14 +584,6 @@ class DuorecDataset(BaseDataset, config_name='duorec'):
     def create_from_config(cls, config):
         dataset = BaseDataset.create_from_config(config['dataset'])
         return cls(dataset)
-
-    @property
-    def num_users(self):
-        return self._dataset.num_users
-
-    @property
-    def num_items(self):
-        return self._dataset.num_items
 
     def get_samplers(self):
         return self._dataset.get_samplers()
