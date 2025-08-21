@@ -154,15 +154,7 @@ class SequenceDataset(BaseSequenceDataset, config_name='sequence'):
             ),
         )
 
-        # replace with this? single responsibility 
-        # cls._log_sparsity(
-        #         config['name'], 
-        #         train_dataset, 
-        #         validation_dataset, 
-        #         test_dataset, 
-        #         max_user_id, 
-        #         max_item_id
-        # )
+        # TODO single responsibility 
 
         samplers_config = config['samplers']
         train_sampler = TrainSampler.create_from_config(
@@ -658,24 +650,16 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
     @staticmethod
     def _parse_and_split_data(lines, max_sequence_length):
         datasets = {'train': [], 'validation': [], 'test': []}
-        max_user_id, max_item_id = 0, 0
 
-        for line in lines:
-            # TODO check strip() or strip('\n')
-            parts = line.strip('\n').split(' ')
-            if len(parts) < 2: continue
+        user_ids, item_sequences, max_user_id, max_item_id, _ = \
+            BaseSequenceDataset._create_sequences(lines)
 
-            user_id = int(parts[0])
-            item_ids = [int(item_id) for item_id in parts[1:]]
+        for user_id, item_ids in zip(user_ids, item_sequences):
             
             assert len(item_ids) >= 5
             # TODO assert or continue
             # if not item_ids or len(item_ids) < 5:
             #     continue
-            
-            max_user_id = max(max_user_id, user_id)
-            max_item_id = max(max_item_id, max(item_ids))
-
 
             split_slices = {
                 'train': slice(None, -2),
@@ -690,16 +674,17 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
                 # TODO assert or continue
                 assert len(item_ids[-max_sequence_length:]) == len(set(item_ids[-max_sequence_length:]),)
                 # if len(final_items) != len(set(final_items)):
-                #     logger.warning(f"User {user_id} has duplicate items in '{part_name}' split. Skipping sample.")
+                #     logger.warning(
+                #         f"User {user_id} has duplicate items in '{part_name}' split. "
+                #         "Original sequence might have duplicates. Skipping sample."
+                #     )
                 #     continue
 
                 datasets[part_name].append({
-                    'user.ids': [user_id],
-                    'user.length': 1,
-                    'item.ids': final_items,
-                    'item.length': len(final_items),
+                    'user.ids': [user_id], 'user.length': 1,
+                    'item.ids': final_items, 'item.length': len(final_items),
                 })
-    
+
         return datasets, max_user_id, max_item_id
 
 class MCLSRDataset(BaseSequenceDataset, config_name='mclsr'):
