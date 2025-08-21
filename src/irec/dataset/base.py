@@ -33,9 +33,8 @@ class BaseDataset(metaclass=MetaParent):
     @property
     def max_sequence_length(self):
         return self._max_sequence_length
-
-
-class SequenceDataset(BaseDataset, config_name='sequence'):
+    
+class BaseSequenceDataset(BaseDataset):
     def __init__(
         self,
         train_sampler,
@@ -52,6 +51,54 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
         self._num_items = num_items
         self._max_sequence_length = max_sequence_length
 
+    @staticmethod
+    def _create_sequences(data, max_sample_len): # TODO
+        user_sequences = []
+        item_sequences = []
+
+        max_user_id = 0
+        max_item_id = 0
+        max_sequence_length = 0
+
+        for sample in data:
+            sample = sample.strip('\n').split(' ')
+            item_ids = [int(item_id) for item_id in sample[1:]][
+                -max_sample_len:
+            ]
+            user_id = int(sample[0])
+
+            max_user_id = max(max_user_id, user_id)
+            max_item_id = max(max_item_id, max(item_ids))
+            max_sequence_length = max(max_sequence_length, len(item_ids))
+
+            user_sequences.append(user_id)
+            item_sequences.append(item_ids)
+
+        return (
+            user_sequences,
+            item_sequences,
+            max_user_id,
+            max_item_id,
+            max_sequence_length,
+        )
+
+    def get_samplers(self):
+        return (
+            self._train_sampler,
+            self._validation_sampler,
+            self._test_sampler,
+        )
+
+    @property
+    def meta(self):
+        return {
+            'num_users': self.num_users,
+            'num_items': self.num_items,
+            'max_sequence_length': self.max_sequence_length,
+        }
+
+
+class SequenceDataset(BaseSequenceDataset, config_name='sequence'):
     @classmethod
     def create_from_config(cls, config, **kwargs):
         data_dir_path = os.path.join(
@@ -221,53 +268,6 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
             )
 
         return dataset, max_user_id, max_item_id, max_sequence_len
-
-    @staticmethod
-    def _create_sequences(data, max_sample_len): # TODO
-        user_sequences = []
-        item_sequences = []
-
-        max_user_id = 0
-        max_item_id = 0
-        max_sequence_length = 0
-
-        for sample in data:
-            sample = sample.strip('\n').split(' ')
-            item_ids = [int(item_id) for item_id in sample[1:]][
-                -max_sample_len:
-            ]
-            user_id = int(sample[0])
-
-            max_user_id = max(max_user_id, user_id)
-            max_item_id = max(max_item_id, max(item_ids))
-            max_sequence_length = max(max_sequence_length, len(item_ids))
-
-            user_sequences.append(user_id)
-            item_sequences.append(item_ids)
-
-        return (
-            user_sequences,
-            item_sequences,
-            max_user_id,
-            max_item_id,
-            max_sequence_length,
-        )
-
-    def get_samplers(self):
-        return (
-            self._train_sampler,
-            self._validation_sampler,
-            self._test_sampler,
-        )
-    
-    # TODO bad, need move to base class
-    @property
-    def meta(self):
-        return {
-            'num_users': self.num_users,
-            'num_items': self.num_items,
-            'max_sequence_length': self.max_sequence_length,
-        }
 
 class GraphDataset(BaseDataset, config_name='graph'):
     def __init__(
@@ -581,38 +581,6 @@ class DuorecDataset(BaseDataset, config_name='duorec'):
     @property
     def meta(self):
         return self._dataset.meta
-    
-class BaseSequenceDataset(BaseDataset):
-    def __init__(
-        self,
-        train_sampler,
-        validation_sampler,
-        test_sampler,
-        num_users,
-        num_items,
-        max_sequence_length,
-    ):
-        self._train_sampler = train_sampler
-        self._validation_sampler = validation_sampler
-        self._test_sampler = test_sampler
-        self._num_users = num_users
-        self._num_items = num_items
-        self._max_sequence_length = max_sequence_length
-
-    def get_samplers(self):
-        return (
-            self._train_sampler,
-            self._validation_sampler,
-            self._test_sampler,
-        )
-
-    @property
-    def meta(self):
-        return {
-            'num_users': self.num_users,
-            'num_items': self.num_items,
-            'max_sequence_length': self.max_sequence_length,
-        }
 
 
 class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
