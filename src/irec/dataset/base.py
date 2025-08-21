@@ -654,23 +654,13 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
                 config['name']
             )
 
-        train_sampler = TrainSampler.create_from_config(
-            config['samplers'],
-            dataset=train_dataset,
-            num_users=max_user_id,
-            num_items=max_item_id,
-        )
-        validation_sampler = EvalSampler.create_from_config(
-            config['samplers'],
-            dataset=validation_dataset,
-            num_users=max_user_id,
-            num_items=max_item_id,
-        )
-        test_sampler = EvalSampler.create_from_config(
-            config['samplers'],
-            dataset=test_dataset,
-            num_users=max_user_id,
-            num_items=max_item_id,
+        train_sampler, validation_sampler, test_sampler = cls._create_samplers(
+            config['samplers'], 
+            train_dataset, 
+            validation_dataset, 
+            test_dataset, 
+            max_user_id, 
+            max_item_id
         )
 
         return cls(
@@ -681,6 +671,19 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
             num_items=max_item_id,
             max_sequence_length=max_sequence_length,
         )
+    
+    @staticmethod
+    def _create_samplers(sampler_config, train_dataset, validation_dataset, test_dataset, num_users, num_items):
+        train_sampler = TrainSampler.create_from_config(
+            sampler_config, dataset=train_dataset, num_users=num_users, num_items=num_items
+        )
+        validation_sampler = EvalSampler.create_from_config(
+            sampler_config, dataset=validation_dataset, num_users=num_users, num_items=num_items
+        )
+        test_sampler = EvalSampler.create_from_config(
+            sampler_config, dataset=test_dataset, num_users=num_users, num_items=num_items
+        )
+        return train_sampler, validation_sampler, test_sampler
     
     @staticmethod
     def _log_stats(train_dataset, test_dataset, max_user_id, max_item_id, max_len, name):
