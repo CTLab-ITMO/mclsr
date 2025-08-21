@@ -718,14 +718,6 @@ class ScientificDataset(BaseDataset, config_name='scientific'):
         )
 
     @property
-    def num_users(self):
-        return self._num_users
-
-    @property
-    def num_items(self):
-        return self._num_items
-
-    @property
     def max_sequence_length(self):
         return self._max_sequence_length
 
@@ -803,14 +795,6 @@ class MCLSRDataset(BaseDataset, config_name='mclsr'):
 
     def get_samplers(self):
         return (self._train_sampler, self._validation_sampler, self._test_sampler)
-    
-    @property
-    def num_users(self):
-        return self._num_users
-
-    @property
-    def num_items(self):
-        return self._num_items
 
     @property
     def meta(self):
@@ -859,10 +843,6 @@ class SASRecDataset(BaseDataset, config_name='sasrec_comparison'):
     def get_samplers(self):
         return (self._train_sampler, self._validation_sampler, self._test_sampler)
     
-    @property
-    def num_users(self): return self._num_users
-    @property
-    def num_items(self): return self._num_items
     @property
     def meta(self):
         return {'num_users': self.num_users, 'num_items': self.num_items, 'max_sequence_length': self._max_sequence_length}
