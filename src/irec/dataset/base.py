@@ -303,30 +303,10 @@ class GraphDataset(BaseDataset, config_name='graph'):
         self._train_user_interactions = np.array(train_user_interactions)
         self._train_item_interactions = np.array(train_item_interactions)
 
-        path_to_graph = os.path.join(graph_dir_path, 'general_graph.npz')
-        if os.path.exists(path_to_graph):
-            self._graph = sp.load_npz(path_to_graph)
-        else:
-            # place ones only when co-occurrence happens
-            user2item_connections = csr_matrix(
-                (
-                    np.ones(len(train_user_interactions)),
-                    (train_user_interactions, train_item_interactions),
-                ),
-                shape=(self._num_users + 2, self._num_items + 2),
-            )  # (num_users + 2, num_items + 2), bipartite graph
-            self._graph = self.get_sparse_graph_layer(
-                user2item_connections,
-                self._num_users + 2,
-                self._num_items + 2,
-                biparite=True,
-            )
-            sp.save_npz(path_to_graph, self._graph)
-
-        self._graph = (
-            self._convert_sp_mat_to_sp_tensor(self._graph)
-            .coalesce()
-            .to(DEVICE)
+        self._graph = self._build_or_load_bipartite_graph(
+            graph_dir_path,
+            train_user_interactions,
+            train_item_interactions
         )
 
 
@@ -463,6 +443,29 @@ class GraphDataset(BaseDataset, config_name='graph'):
             )
         else:
             self._item_graph = None
+
+    def _build_or_load_bipartite_graph(self, graph_dir_path, train_user_interactions, train_item_interactions):
+        path_to_graph = os.path.join(graph_dir_path, 'general_graph.npz')
+        if os.path.exists(path_to_graph):
+            graph_matrix = sp.load_npz(path_to_graph)
+        else:
+            # place ones only when co-occurrence happens
+            user2item_connections = csr_matrix(
+                (
+                    np.ones(len(train_user_interactions)),
+                    (train_user_interactions, train_item_interactions),
+                ),
+                shape=(self._num_users + 2, self._num_items + 2),
+            )  # (num_users + 2, num_items + 2), bipartite graph
+            graph_matrix = self.get_sparse_graph_layer(
+                user2item_connections,
+                self._num_users + 2,
+                self._num_items + 2,
+                biparite=True,
+            )
+            sp.save_npz(path_to_graph, graph_matrix)
+
+        return self._convert_sp_mat_to_sp_tensor(graph_matrix).coalesce().to(DEVICE)
 
     def _collect_interactions(self, train_sampler, validation_sampler, test_sampler):
         train_interactions = []
