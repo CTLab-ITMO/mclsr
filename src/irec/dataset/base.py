@@ -632,57 +632,21 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
             config['path_to_data_dir'],
             config['name'],
         )
+
         max_sequence_length = config['max_sequence_length']
-        max_user_id, max_item_id = 0, 0
-        train_dataset, validation_dataset, test_dataset = [], [], []
 
         dataset_path = os.path.join(data_dir_path, '{}.txt'.format('all_data'))
         with open(dataset_path, 'r') as f:
-            data = f.readlines()
+            lines = f.readlines()
 
-        for sample in data:
-            sample = sample.strip('\n').split(' ')
-            user_id = int(sample[0])
-            item_ids = [int(item_id) for item_id in sample[1:]]
+        datasets, max_user_id, max_item_id = cls._parse_and_split_data(lines, max_sequence_length)
 
-            max_user_id = max(max_user_id, user_id)
-            max_item_id = max(max_item_id, max(item_ids))
+        train_dataset = datasets['train']
+        validation_dataset = datasets['validation']
+        test_dataset = datasets['test']
 
-            assert len(item_ids) >= 5
 
-            train_dataset.append(
-                {
-                    'user.ids': [user_id],
-                    'user.length': 1,
-                    'item.ids': item_ids[:-2][-max_sequence_length:],
-                    'item.length': len(item_ids[:-2][-max_sequence_length:]),
-                },
-            )
-            assert len(item_ids[:-2][-max_sequence_length:]) == len(
-                set(item_ids[:-2][-max_sequence_length:]),
-            )
-            validation_dataset.append(
-                {
-                    'user.ids': [user_id],
-                    'user.length': 1,
-                    'item.ids': item_ids[:-1][-max_sequence_length:],
-                    'item.length': len(item_ids[:-1][-max_sequence_length:]),
-                },
-            )
-            assert len(item_ids[:-1][-max_sequence_length:]) == len(
-                set(item_ids[:-1][-max_sequence_length:]),
-            )
-            test_dataset.append(
-                {
-                    'user.ids': [user_id],
-                    'user.length': 1,
-                    'item.ids': item_ids[-max_sequence_length:],
-                    'item.length': len(item_ids[-max_sequence_length:]),
-                },
-            )
-            assert len(item_ids[-max_sequence_length:]) == len(
-                set(item_ids[-max_sequence_length:]),
-            )
+
 
         logger.info('Train dataset size: {}'.format(len(train_dataset)))
         logger.info('Test dataset size: {}'.format(len(test_dataset)))
@@ -725,6 +689,53 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
             num_items=max_item_id,
             max_sequence_length=max_sequence_length,
         )
+
+    @staticmethod
+    def _parse_and_split_data(lines, max_sequence_length):
+        datasets = {'train': [], 'validation': [], 'test': []}
+        max_user_id, max_item_id = 0, 0
+
+        for line in lines:
+            # TODO check strip() or strip('\n')
+            parts = line.strip('\n').split(' ')
+            if len(parts) < 2: continue
+
+            user_id = int(parts[0])
+            item_ids = [int(item_id) for item_id in parts[1:]]
+            
+            assert len(item_ids) >= 5
+            # TODO assert or continue
+            # if not item_ids or len(item_ids) < 5:
+            #     continue
+            
+            max_user_id = max(max_user_id, user_id)
+            max_item_id = max(max_item_id, max(item_ids))
+
+
+            split_slices = {
+                'train': slice(None, -2),
+                'validation': slice(None, -1),
+                'test': slice(None, None)
+            }
+            
+            for part_name, part_slice in split_slices.items():
+                sliced_items = item_ids[part_slice]
+                final_items = sliced_items[-max_sequence_length:]
+                
+                # TODO assert or continue
+                assert len(item_ids[-max_sequence_length:]) == len(set(item_ids[-max_sequence_length:]),)
+                # if len(final_items) != len(set(final_items)):
+                #     logger.warning(f"User {user_id} has duplicate items in '{part_name}' split. Skipping sample.")
+                #     continue
+
+                datasets[part_name].append({
+                    'user.ids': [user_id],
+                    'user.length': 1,
+                    'item.ids': final_items,
+                    'item.length': len(final_items),
+                })
+    
+        return datasets, max_user_id, max_item_id
 
 class MCLSRDataset(BaseSequenceDataset, config_name='mclsr'):
     @staticmethod
