@@ -22,6 +22,26 @@ class BaseDataset(metaclass=MetaParent):
     def get_samplers(self):
         raise NotImplementedError
 
+    @property
+    def num_users(self):
+        return self._num_users
+
+    @property
+    def num_items(self):
+        return self._num_items
+
+    @property
+    def max_sequence_length(self):
+        return self._max_sequence_length
+
+    @property
+    def meta(self):
+        return {
+            'num_users': self.num_users,
+            'num_items': self.num_items,
+            'max_sequence_length': self.max_sequence_length,
+        }
+
 
 class SequenceDataset(BaseDataset, config_name='sequence'):
     def __init__(
@@ -47,32 +67,20 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
             config['name'],
         )
 
+        common_params_for_creation = {
+            'dir_path': data_dir_path,
+            'max_sequence_length': config['max_sequence_length'],
+            'use_cached': config.get('use_cached', False),
+        }
+
         train_dataset, train_max_user_id, train_max_item_id, train_seq_len = (
-            cls._create_dataset(
-                dir_path=data_dir_path,
-                part='train',
-                max_sequence_length=config['max_sequence_length'],
-                use_cached=config.get('use_cached', False),
-            )
+            cls._create_dataset(part='train', **common_params_for_creation)
         )
-        (
-            validation_dataset,
-            valid_max_user_id,
-            valid_max_item_id,
-            valid_seq_len,
-        ) = cls._create_dataset(
-            dir_path=data_dir_path,
-            part='valid',
-            max_sequence_length=config['max_sequence_length'],
-            use_cached=config.get('use_cached', False),
+        validation_dataset, valid_max_user_id, valid_max_item_id, valid_seq_len = (
+            cls._create_dataset(part='valid', **common_params_for_creation)
         )
         test_dataset, test_max_user_id, test_max_item_id, test_seq_len = (
-            cls._create_dataset(
-                dir_path=data_dir_path,
-                part='test',
-                max_sequence_length=config['max_sequence_length'],
-                use_cached=config.get('use_cached', False),
-            )
+            cls._create_dataset(part='test', **common_params_for_creation)
         )
 
         max_user_id = max(
@@ -107,20 +115,31 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
             ),
         )
 
+        # replace with this? single responsibility 
+        # cls._log_sparsity(
+        #         config['name'], 
+        #         train_dataset, 
+        #         validation_dataset, 
+        #         test_dataset, 
+        #         max_user_id, 
+        #         max_item_id
+        # )
+
+        samplers_config = config['samplers']
         train_sampler = TrainSampler.create_from_config(
-            config['samplers'],
+            samplers_config,
             dataset=train_dataset,
             num_users=max_user_id,
             num_items=max_item_id,
         )
         validation_sampler = EvalSampler.create_from_config(
-            config['samplers'],
+            samplers_config,
             dataset=validation_dataset,
             num_users=max_user_id,
             num_items=max_item_id,
         )
         test_sampler = EvalSampler.create_from_config(
-            config['samplers'],
+            samplers_config,
             dataset=test_dataset,
             num_users=max_user_id,
             num_items=max_item_id,
@@ -143,79 +162,76 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
         max_sequence_length=None,
         use_cached=False,
     ):
-        max_user_id = 0
-        max_item_id = 0
-        max_sequence_len = 0
+        cache_path = os.path.join(dir_path, '{}.pkl'.format(part))
 
-        if use_cached and os.path.exists(
-            os.path.join(dir_path, '{}.pkl'.format(part)),
-        ):
+        if use_cached and os.path.exists(cache_path):
             logger.info(
-                f'Take cached dataset from {os.path.join(dir_path, "{}.pkl".format(part))}',
+                'Loading cached dataset from {}'.format(cache_path)
+            )
+            with open(cache_path, 'rb') as f:
+                return pickle.load(f)
+            
+
+        return cls._build_and_cache_dataset(dir_path, part, max_sequence_length, cache_path)
+
+    @classmethod
+    def _build_and_cache_dataset(cls, dir_path, part, max_sequence_length, cache_path):
+        logger.info(
+            'Cache is forcefully ignored.'
+            if not use_cached
+            else 'No cached dataset has been found.'
+        )
+        dataset_path = os.path.join(dir_path, '{}.txt'.format(part))
+        logger.info(
+            'Creating a dataset from {}...'.format(dataset_path)
+        )
+
+        with open(dataset_path, 'r') as f:
+            data = f.readlines()
+
+        # useless?
+        # max_user_id = 0
+        # max_item_id = 0
+        # max_sequence_len = 0
+
+        sequence_info = cls._create_sequences(data, max_sequence_length)
+        (
+            user_sequences,
+            item_sequences,
+            max_user_id,
+            max_item_id,
+            max_sequence_len,
+        ) = sequence_info
+
+        dataset = []
+        for user_id, item_ids in zip(user_sequences, item_sequences):
+            dataset.append(
+                {
+                    'user.ids': [user_id],
+                    'user.length': 1,
+                    'item.ids': item_ids,
+                    'item.length': len(item_ids),
+                },
             )
 
-            with open(
-                os.path.join(dir_path, '{}.pkl'.format(part)),
-                'rb',
-            ) as dataset_file:
-                dataset, max_user_id, max_item_id, max_sequence_len = (
-                    pickle.load(dataset_file)
-                )
-        else:
-            logger.info(
-                'Cache is forecefully ignored.'
-                if not use_cached
-                else 'No cached dataset has been found.',
-            )
-            logger.info(
-                f'Creating a dataset {os.path.join(dir_path, "{}.txt".format(part))}...',
-            )
-
-            dataset_path = os.path.join(dir_path, '{}.txt'.format(part))
-            with open(dataset_path, 'r') as f:
-                data = f.readlines()
-
-            sequence_info = cls._create_sequences(data, max_sequence_length)
-            (
-                user_sequences,
-                item_sequences,
-                max_user_id,
-                max_item_id,
+        logger.info('{} dataset size: {}'.format(part, len(dataset)))
+        logger.info(
+            '{} dataset max sequence length: {}'.format(
+                part,
                 max_sequence_len,
-            ) = sequence_info
+            ),
+        )
 
-            dataset = []
-            for user_id, item_ids in zip(user_sequences, item_sequences):
-                dataset.append(
-                    {
-                        'user.ids': [user_id],
-                        'user.length': 1,
-                        'item.ids': item_ids,
-                        'item.length': len(item_ids),
-                    },
-                )
-
-            logger.info('{} dataset size: {}'.format(part, len(dataset)))
-            logger.info(
-                '{} dataset max sequence length: {}'.format(
-                    part,
-                    max_sequence_len,
-                ),
+        with open(cache_path, 'wb') as dataset_file:
+            pickle.dump(
+                (dataset, max_user_id, max_item_id, max_sequence_len),
+                dataset_file,
             )
-
-            with open(
-                os.path.join(dir_path, '{}.pkl'.format(part)),
-                'wb',
-            ) as dataset_file:
-                pickle.dump(
-                    (dataset, max_user_id, max_item_id, max_sequence_len),
-                    dataset_file,
-                )
 
         return dataset, max_user_id, max_item_id, max_sequence_len
 
     @staticmethod
-    def _create_sequences(data, max_sample_len):
+    def _create_sequences(data, max_sample_len): # TODO
         user_sequences = []
         item_sequences = []
 
@@ -251,27 +267,6 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
             self._validation_sampler,
             self._test_sampler,
         )
-
-    @property
-    def num_users(self):
-        return self._num_users
-
-    @property
-    def num_items(self):
-        return self._num_items
-
-    @property
-    def max_sequence_length(self):
-        return self._max_sequence_length
-
-    @property
-    def meta(self):
-        return {
-            'num_users': self.num_users,
-            'num_items': self.num_items,
-            'max_sequence_length': self.max_sequence_length,
-        }
-
 
 class GraphDataset(BaseDataset, config_name='graph'):
     def __init__(
