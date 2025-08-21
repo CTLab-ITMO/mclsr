@@ -34,14 +34,6 @@ class BaseDataset(metaclass=MetaParent):
     def max_sequence_length(self):
         return self._max_sequence_length
 
-    # @property
-    # def meta(self):
-    #     return {
-    #         'num_users': self.num_users,
-    #         'num_items': self.num_items,
-    #         'max_sequence_length': self.max_sequence_length,
-    #     }
-
 
 class SequenceDataset(BaseDataset, config_name='sequence'):
     def __init__(
@@ -548,8 +540,6 @@ class GraphDataset(BaseDataset, config_name='graph'):
     def get_samplers(self):
         return self._dataset.get_samplers()
 
-
-    # TODO bad, need move to base class
     @property
     def meta(self):
         meta = {
