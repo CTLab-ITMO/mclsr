@@ -309,140 +309,105 @@ class GraphDataset(BaseDataset, config_name='graph'):
             train_item_interactions
         )
 
+        self._user_graph = (
+            self._build_or_load_similarity_graph(
+                'user', 
+                self._train_user_interactions, 
+                self._train_item_interactions, 
+                train_item_2_users, 
+                train_user_2_items
+            ) 
+            if self._use_user_graph 
+            else None
+        )
+        # TODO at review check with git diff these to blocks in similarity - 
+        # that we can use common function _build_or_load_similarity_graph
+        # both for items and users
+        # I checked but only in view
+        # Aksinya
+        self._item_graph = (
+            self._build_or_load_similarity_graph(
+                'item', 
+                self._train_user_interactions, 
+                self._train_item_interactions, 
+                train_item_2_users, 
+                train_user_2_items
+            ) 
+            if self._use_item_graph 
+            else None
+        )
 
+    def _build_or_load_similarity_graph(
+        self, 
+        entity_type, 
+        train_user_interactions, 
+        train_item_interactions, 
+        train_item_2_users, 
+        train_user_2_items
+    ):
+        if entity_type not in ['user', 'item']:
+            raise ValueError("entity_type must be either 'user' or 'item'")
 
+        path_to_graph = os.path.join(self._graph_dir_path, '{}_graph.npz'.format(entity_type))
+        is_user_graph = (entity_type == 'user')
+        num_entities = self._num_users if is_user_graph else self._num_items
 
-
-
-        if self._use_user_graph:
-            path_to_user_graph = os.path.join(graph_dir_path, 'user_graph.npz')
-            if os.path.exists(path_to_user_graph):
-                self._user_graph = sp.load_npz(path_to_user_graph)
-            else:
-                user2user_interactions_fst = []
-                user2user_interactions_snd = []
-                visited_user_item_pairs = set()
-                visited_user_user_pairs = set()
-
-                for user_id, item_id in tqdm(
-                    zip(
-                        self._train_user_interactions,
-                        self._train_item_interactions,
-                    ),
-                ):
-                    if (user_id, item_id) in visited_user_item_pairs:
-                        continue  # process (user, item) pair only once
-                    visited_user_item_pairs.add((user_id, item_id))
-
-                    for connected_user_id in train_item_2_users[item_id]:
-                        if (
-                            (user_id, connected_user_id)
-                            in visited_user_user_pairs
-                            or user_id == connected_user_id
-                        ):
-                            continue  # add (user, user) to graph connections pair only once
-                        visited_user_user_pairs.add(
-                            (user_id, connected_user_id),
-                        )
-
-                        user2user_interactions_fst.append(user_id)
-                        user2user_interactions_snd.append(connected_user_id)
-
-                # (user, user) graph
-                user2user_connections = csr_matrix(
-                    (
-                        np.ones(len(user2user_interactions_fst)),
-                        (
-                            user2user_interactions_fst,
-                            user2user_interactions_snd,
-                        ),
-                    ),
-                    shape=(self._num_users + 2, self._num_users + 2),
-                )
-                print(self._neighborhood_size)
-                if self._neighborhood_size is not None:
-                    user2user_connections = self._filter_matrix_by_top_k(user2user_connections, self._neighborhood_size)
-
-                self._user_graph = self.get_sparse_graph_layer(
-                    user2user_connections,
-                    self._num_users + 2,
-                    self._num_users + 2,
-                    biparite=False,
-                )
-                sp.save_npz(path_to_user_graph, self._user_graph)
-
-            self._user_graph = (
-                self._convert_sp_mat_to_sp_tensor(self._user_graph)
-                .coalesce()
-                .to(DEVICE)
-            )
+        if os.path.exists(path_to_graph):
+            graph_matrix = sp.load_npz(path_to_graph)
         else:
-            self._user_graph = None
+            # print('Building {}-{} similarity graph...'.format(entity_type, entity_type))
+            interactions_fst = []
+            interactions_snd = []
+            visited_user_item_pairs = set()
+            visited_entity_pairs = set()
 
-        if self._use_item_graph:
-            path_to_item_graph = os.path.join(graph_dir_path, 'item_graph.npz')
-            if os.path.exists(path_to_item_graph):
-                self._item_graph = sp.load_npz(path_to_item_graph)
-            else:
-                item2item_interactions_fst = []
-                item2item_interactions_snd = []
-                visited_user_item_pairs = set()
-                visited_item_item_pairs = set()
+            for user_id, item_id in tqdm(
+                zip(train_user_interactions, train_item_interactions),
+                desc='Building {}-{} graph'.format(entity_type, entity_type) # TODO need?
+            ):
+                if (user_id, item_id) in visited_user_item_pairs:
+                    continue
+                visited_user_item_pairs.add((user_id, item_id)) 
 
-                for user_id, item_id in tqdm(
-                    zip(
-                        self._train_user_interactions,
-                        self._train_item_interactions,
-                    ),
-                ):
-                    if (user_id, item_id) in visited_user_item_pairs:
-                        continue  # process (user, item) pair only once
-                    visited_user_item_pairs.add((user_id, item_id))
+                # TODO look here at review
+                source_entity = user_id if is_user_graph else item_id
+                connection_map = train_item_2_users if is_user_graph else train_user_2_items
+                connection_point = item_id if is_user_graph else user_id
 
-                    for connected_item_id in train_user_2_items[user_id]:
-                        if (
-                            (item_id, connected_item_id)
-                            in visited_item_item_pairs
-                            or item_id == connected_item_id
-                        ):
-                            continue  # add (item, item) to graph connections pair only once
-                        visited_item_item_pairs.add(
-                            (item_id, connected_item_id),
-                        )
+                for connected_entity in connection_map[connection_point]:
+                    if source_entity == connected_entity:
+                        continue
 
-                        item2item_interactions_fst.append(item_id)
-                        item2item_interactions_snd.append(connected_item_id)
+                    pair_key = (source_entity, connected_entity)
+                    if pair_key in visited_entity_pairs:
+                        continue
+                    
+                    visited_entity_pairs.add(pair_key)
+                    interactions_fst.append(source_entity)
+                    interactions_snd.append(connected_entity)
 
-                # (item, item) graph
-                item2item_connections = csr_matrix(
-                    (
-                        np.ones(len(item2item_interactions_fst)),
-                        (
-                            item2item_interactions_fst,
-                            item2item_interactions_snd,
-                        ),
-                    ),
-                    shape=(self._num_items + 2, self._num_items + 2),
-                )
-
-                if self._neighborhood_size is not None:
-                    item2item_connections = self._filter_matrix_by_top_k(item2item_connections, self._neighborhood_size)
-
-                self._item_graph = self.get_sparse_graph_layer(
-                    item2item_connections,
-                    self._num_items + 2,
-                    self._num_items + 2,
-                    biparite=False,
-                )
-                sp.save_npz(path_to_item_graph, self._item_graph)
-
-            self._item_graph = (
-                self._convert_sp_mat_to_sp_tensor(self._item_graph)
-                .coalesce()
-                .to(DEVICE)
+            connections = csr_matrix(
+                (np.ones(len(interactions_fst)), 
+                 (
+                     interactions_fst, 
+                  interactions_snd
+                  )
+                ),
+                shape=(num_entities + 2, num_entities + 2)
             )
-        else:
-            self._item_graph = None
+
+            if self._neighborhood_size is not None:
+                connections = self._filter_matrix_by_top_k(connections, self._neighborhood_size)
+
+            graph_matrix = self.get_sparse_graph_layer(
+                connections, 
+                num_entities + 2, 
+                num_entities + 2, 
+                biparite=False
+            )
+            sp.save_npz(path_to_graph, graph_matrix)
+
+        return self._convert_sp_mat_to_sp_tensor(graph_matrix).coalesce().to(DEVICE)
 
     def _build_or_load_bipartite_graph(self, graph_dir_path, train_user_interactions, train_item_interactions):
         path_to_graph = os.path.join(graph_dir_path, 'general_graph.npz')
