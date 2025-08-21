@@ -645,22 +645,14 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
         validation_dataset = datasets['validation']
         test_dataset = datasets['test']
 
-
-
-
-        logger.info('Train dataset size: {}'.format(len(train_dataset)))
-        logger.info('Test dataset size: {}'.format(len(test_dataset)))
-        logger.info('Max user id: {}'.format(max_user_id))
-        logger.info('Max item id: {}'.format(max_item_id))
-        logger.info('Max sequence length: {}'.format(max_sequence_length))
-        logger.info(
-            '{} dataset sparsity: {}'.format(
-                config['name'],
-                (len(train_dataset) + len(test_dataset))
-                / max_user_id
-                / max_item_id,
-            ),
-        )
+        cls._log_stats(
+                train_dataset, 
+                test_dataset, 
+                max_user_id, 
+                max_item_id, 
+                max_sequence_length, 
+                config['name']
+            )
 
         train_sampler = TrainSampler.create_from_config(
             config['samplers'],
@@ -689,6 +681,18 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
             num_items=max_item_id,
             max_sequence_length=max_sequence_length,
         )
+    
+    @staticmethod
+    def _log_stats(train_dataset, test_dataset, max_user_id, max_item_id, max_len, name):
+        logger.info('Train dataset size: {}'.format(len(train_dataset)))
+        logger.info('Test dataset size: {}'.format(len(test_dataset)))
+        logger.info('Max user id: {}'.format(max_user_id))
+        logger.info('Max item id: {}'.format(max_item_id))
+        logger.info('Max sequence length: {}'.format(max_len))
+        
+        if max_user_id > 0 and max_item_id > 0:
+            sparsity = (len(train_dataset) + len(test_dataset)) / max_user_id / max_item_id
+            logger.info('{} dataset sparsity: {}'.format(name, sparsity))
 
     @staticmethod
     def _parse_and_split_data(lines, max_sequence_length):
