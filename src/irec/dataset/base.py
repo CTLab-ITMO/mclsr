@@ -690,20 +690,15 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
 class MCLSRDataset(BaseSequenceDataset, config_name='mclsr'):
     @staticmethod
     def _create_sequences_from_file(filepath, max_len=None):
-        sequences = {}
-        max_user, max_item = 0, 0
-        
+        # TODO be careful with _create_sequences
         with open(filepath, 'r') as f:
-            for line in f:
-                parts = line.strip().split(' ')
-                user_id = int(parts[0])
-                item_ids = [int(i) for i in parts[1:]]
-                if max_len:
-                    item_ids = item_ids[-max_len:]
-                sequences[user_id] = item_ids
-                max_user = max(max_user, user_id)
-                if item_ids:
-                    max_item = max(max_item, max(item_ids))
+            lines = f.readlines()
+
+        user_ids, item_seqs, max_user, max_item, _ = \
+            MCLSRDataset._create_sequences(lines, max_len)
+
+        sequences = {uid: seq for uid, seq in zip(user_ids, item_seqs)}
+        
         return sequences, max_user, max_item
     
     @classmethod
