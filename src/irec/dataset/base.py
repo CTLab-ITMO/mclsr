@@ -591,9 +591,8 @@ class DuorecDataset(BaseDataset, config_name='duorec'):
     @property
     def meta(self):
         return self._dataset.meta
-
-
-class ScientificDataset(BaseDataset, config_name='scientific'):
+    
+class BaseSequenceDataset(BaseDataset):
     def __init__(
         self,
         train_sampler,
@@ -610,6 +609,23 @@ class ScientificDataset(BaseDataset, config_name='scientific'):
         self._num_items = num_items
         self._max_sequence_length = max_sequence_length
 
+    def get_samplers(self):
+        return (
+            self._train_sampler,
+            self._validation_sampler,
+            self._test_sampler,
+        )
+
+    @property
+    def meta(self):
+        return {
+            'num_users': self.num_users,
+            'num_items': self.num_items,
+            'max_sequence_length': self.max_sequence_length,
+        }
+
+
+class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
     @classmethod
     def create_from_config(cls, config, **kwargs):
         data_dir_path = os.path.join(
@@ -710,35 +726,7 @@ class ScientificDataset(BaseDataset, config_name='scientific'):
             max_sequence_length=max_sequence_length,
         )
 
-    def get_samplers(self):
-        return (
-            self._train_sampler,
-            self._validation_sampler,
-            self._test_sampler,
-        )
-
-    @property
-    def max_sequence_length(self):
-        return self._max_sequence_length
-
-    @property
-    def meta(self):
-        return {
-            'num_users': self.num_users,
-            'num_items': self.num_items,
-            'max_sequence_length': self.max_sequence_length,
-        }
-
-
-class MCLSRDataset(BaseDataset, config_name='mclsr'):
-    def __init__(self, train_sampler, validation_sampler, test_sampler, num_users, num_items, max_sequence_length):
-        self._train_sampler = train_sampler
-        self._validation_sampler = validation_sampler
-        self._test_sampler = test_sampler
-        self._num_users = num_users
-        self._num_items = num_items
-        self._max_sequence_length = max_sequence_length
-
+class MCLSRDataset(BaseSequenceDataset, config_name='mclsr'):
     @staticmethod
     def _create_sequences_from_file(filepath, max_len=None):
         sequences = {}
@@ -792,13 +780,6 @@ class MCLSRDataset(BaseDataset, config_name='mclsr'):
         test_sampler = EvalSampler.create_from_config(config['samplers'], dataset=test_dataset, num_users=num_users, num_items=num_items, **kwargs)
 
         return cls(train_sampler, validation_sampler, test_sampler, num_users, num_items, max_seq_len)
-
-    def get_samplers(self):
-        return (self._train_sampler, self._validation_sampler, self._test_sampler)
-
-    @property
-    def meta(self):
-        return {'num_users': self.num_users, 'num_items': self.num_items, 'max_sequence_length': self._max_sequence_length}
     
 class SASRecDataset(BaseDataset, config_name='sasrec_comparison'):
     def __init__(self, train_sampler, validation_sampler, test_sampler, num_users, num_items, max_sequence_length):
