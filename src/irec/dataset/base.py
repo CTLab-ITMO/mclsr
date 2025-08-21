@@ -34,13 +34,13 @@ class BaseDataset(metaclass=MetaParent):
     def max_sequence_length(self):
         return self._max_sequence_length
 
-    @property
-    def meta(self):
-        return {
-            'num_users': self.num_users,
-            'num_items': self.num_items,
-            'max_sequence_length': self.max_sequence_length,
-        }
+    # @property
+    # def meta(self):
+    #     return {
+    #         'num_users': self.num_users,
+    #         'num_items': self.num_items,
+    #         'max_sequence_length': self.max_sequence_length,
+    #     }
 
 
 class SequenceDataset(BaseDataset, config_name='sequence'):
@@ -267,6 +267,14 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
             self._validation_sampler,
             self._test_sampler,
         )
+    
+    @property
+    def meta(self):
+        return {
+            'num_users': self.num_users,
+            'num_items': self.num_items,
+            'max_sequence_length': self.max_sequence_length,
+        }
 
 class GraphDataset(BaseDataset, config_name='graph'):
     def __init__(
@@ -284,6 +292,7 @@ class GraphDataset(BaseDataset, config_name='graph'):
         self._use_user_graph = use_user_graph
         self._use_item_graph = use_item_graph
         self._neighborhood_size = neighborhood_size
+        # self._max_sequence_length = dataset.max_sequence_length
 
         self._num_users = dataset.num_users
         self._num_items = dataset.num_items
@@ -308,6 +317,7 @@ class GraphDataset(BaseDataset, config_name='graph'):
             train_user_interactions,
             train_item_interactions
         )
+
 
         self._user_graph = (
             self._build_or_load_similarity_graph(
@@ -534,15 +544,6 @@ class GraphDataset(BaseDataset, config_name='graph'):
             mat.rows[i] = [mat.rows[i][j] for j in top_k_indices]
 
         return mat.tocsr()
-                
-
-    @property
-    def num_users(self):
-        return self._dataset.num_users
-
-    @property
-    def num_items(self):
-        return self._dataset.num_items
 
     def get_samplers(self):
         return self._dataset.get_samplers()
