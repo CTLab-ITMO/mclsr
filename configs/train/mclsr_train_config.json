@@ -15,8 +15,7 @@
       "samplers": {
         "num_negatives_val": 100,
         "num_negatives_train": 100,
-        "type": "mclsr",
-        "negative_sampler_type": "random"
+        "type": "mclsr"
       }
     }
   },
