@@ -379,38 +379,6 @@ class GraphDataset(BaseDataset, config_name='graph'):
         return meta
 
 
-class DuorecDataset(BaseDataset, config_name='duorec'):
-    def __init__(self, dataset):
-        self._dataset = dataset
-        self._num_users = dataset.num_users
-        self._num_items = dataset.num_items
-
-        train_sampler, _, _ = self._dataset.get_samplers()
-
-        target_2_sequences = defaultdict(list)
-        for sample in train_sampler.dataset:
-            item_ids = sample['item.ids']
-
-            target_item = item_ids[-1]
-            semantic_similar_item_ids = item_ids[:-1]
-
-            target_2_sequences[target_item].append(semantic_similar_item_ids)
-
-        train_sampler._target_2_sequences = target_2_sequences
-
-    @classmethod
-    def create_from_config(cls, config):
-        dataset = BaseDataset.create_from_config(config['dataset'])
-        return cls(dataset)
-
-    def get_samplers(self):
-        return self._dataset.get_samplers()
-
-    @property
-    def meta(self):
-        return self._dataset.meta
-
-
 class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
     @classmethod
     def create_from_config(cls, config, **kwargs):
