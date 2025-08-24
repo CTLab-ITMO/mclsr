@@ -169,16 +169,6 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
             ),
         )
 
-        # replace with this? single responsibility 
-        # cls._log_sparsity(
-        #         config['name'], 
-        #         train_dataset, 
-        #         validation_dataset, 
-        #         test_dataset, 
-        #         max_user_id, 
-        #         max_item_id
-        # )
-
         samplers_config = config['samplers']
         train_sampler = TrainSampler.create_from_config(
             samplers_config,
@@ -242,11 +232,6 @@ class SequenceDataset(BaseDataset, config_name='sequence'):
 
         with open(dataset_path, 'r') as f:
             data = f.readlines()
-
-        # useless?
-        # max_user_id = 0
-        # max_item_id = 0
-        # max_sequence_len = 0
 
         sequence_info = cls._create_sequences(data, max_sequence_length)
         (
@@ -375,11 +360,7 @@ class GraphDataset(BaseDataset, config_name='graph'):
             if self._use_user_graph 
             else None
         )
-        # TODO at review check with git diff these to blocks in similarity - 
-        # that we can use common function _build_or_load_similarity_graph
-        # both for items and users
-        # I checked but only in view
-        # Aksinya
+
         self._item_graph = (
             self._build_or_load_similarity_graph(
                 'item', 
@@ -410,7 +391,6 @@ class GraphDataset(BaseDataset, config_name='graph'):
         if os.path.exists(path_to_graph):
             graph_matrix = sp.load_npz(path_to_graph)
         else:
-            # print('Building {}-{} similarity graph...'.format(entity_type, entity_type))
             interactions_fst = []
             interactions_snd = []
             visited_user_item_pairs = set()
@@ -686,9 +666,6 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
         for user_id, item_ids in zip(user_ids, item_sequences):
             
             assert len(item_ids) >= 5
-            # TODO assert or continue
-            # if not item_ids or len(item_ids) < 5:
-            #     continue
 
             split_slices = {
                 'train': slice(None, -2),
@@ -700,14 +677,7 @@ class ScientificDataset(BaseSequenceDataset, config_name='scientific'):
                 sliced_items = item_ids[part_slice]
                 final_items = sliced_items[-max_sequence_length:]
                 
-                # TODO assert or continue
                 assert len(item_ids[-max_sequence_length:]) == len(set(item_ids[-max_sequence_length:]),)
-                # if len(final_items) != len(set(final_items)):
-                #     logger.warning(
-                #         f"User {user_id} has duplicate items in '{part_name}' split. "
-                #         "Original sequence might have duplicates. Skipping sample."
-                #     )
-                #     continue
 
                 datasets[part_name].append({
                     'user.ids': [user_id], 'user.length': 1,
