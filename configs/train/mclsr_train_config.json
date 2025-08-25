@@ -1,5 +1,5 @@
 {
-  "experiment_name": "mclsr_clothing_neighboors",
+  "experiment_name": "mclsr_Clothing",
   "use_wandb": true,
   "best_metric": "validation/ndcg@20",
   "dataset": {
@@ -26,7 +26,7 @@
       "type": "torch",
       "batch_size": 128,
       "batch_processor": {
-        "type": "basic"
+        "type": "basic" 
       },
       "drop_last": true,
       "shuffle": true
@@ -78,21 +78,24 @@
         "fst_embeddings_prefix": "sequential_representation",
         "snd_embeddings_prefix": "graph_representation",
         "output_prefix": "contrastive_interest_loss",
-        "weight": 1.0
+        "weight": 1.0,
+        "temperature": 0.5
       },
       {
         "type": "fps",
         "fst_embeddings_prefix": "user_graph_user_embeddings",
         "snd_embeddings_prefix": "common_graph_user_embeddings",
         "output_prefix": "contrastive_user_feature_loss",
-        "weight": 0.05
+        "weight": 0.05,
+        "temperature": 0.5
       },
       {
         "type": "fps",
         "fst_embeddings_prefix": "item_graph_item_embeddings",
         "snd_embeddings_prefix": "common_graph_item_embeddings",
         "output_prefix": "contrastive_item_feature_loss",
-        "weight": 0.05
+        "weight": 0.05,
+        "temperature": 0.5
       }
     ],
     "output_prefix": "loss"
@@ -143,6 +146,10 @@
             "type": "mclsr-ndcg",
             "k": 20
           },
+          "ndcg@50": {
+            "type": "mclsr-ndcg",
+            "k": 50
+          },
           "recall@5": {
             "type": "mclsr-recall",
             "k": 5
@@ -154,6 +161,18 @@
           "recall@20": {
             "type": "mclsr-recall",
             "k": 20
+          },
+          "recall@50": {
+            "type": "mclsr-recall",
+            "k": 50
+          },
+          "hit@20": {
+            "type": "mclsr-hit",
+            "k": 20
+          },
+          "hit@50": {
+            "type": "mclsr-hit",
+            "k": 50
           }
         }
       },
@@ -175,6 +194,10 @@
             "type": "mclsr-ndcg",
             "k": 20
           },
+          "ndcg@50": {
+            "type": "mclsr-ndcg",
+            "k": 50
+          },
           "recall@5": {
             "type": "mclsr-recall",
             "k": 5
@@ -186,6 +209,18 @@
           "recall@20": {
             "type": "mclsr-recall",
             "k": 20
+          },
+          "recall@50": {
+            "type": "mclsr-recall",
+            "k": 50
+          },
+          "hit@20": {
+            "type": "mclsr-hit",
+            "k": 20
+          },
+          "hit@50": {
+            "type": "mclsr-hit",
+            "k": 50
           }
         }
       }
