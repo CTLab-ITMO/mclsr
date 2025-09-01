@@ -58,7 +58,7 @@ class InferenceCallback(BaseCallback):
                 running_metric_values[metric_name] = []
 
             self._model.eval()
-            with torch.inference_mode():
+            with torch.no_grad():
                 for batch in self._dataloader:
                     for key, value in batch.items():
                         batch[key] = value.to(DEVICE)
@@ -67,18 +67,11 @@ class InferenceCallback(BaseCallback):
                     for metric_name, metric_function in self._metrics.items():
                         running_metric_values[metric_name].extend(metric_function(inputs=batch))
 
-            # Running reduce for statefull metrics (e.g. coverage)
-            for metric_name, metric_function in self._metrics.items():
-                if isinstance(metric_function, StatefullMetric):
-                    running_metric_values[metric_name] = metric_function.reduce(
-                        running_metric_values[metric_name]
-                    )
-
             for label, value in running_metric_values.items():
                 inputs[f'{self._metric_prefix}/{label}'] = np.mean(value)
                 utils.tensorboards.GLOBAL_TENSORBOARD_WRITER.add_scalar(
                     f'{self._metric_prefix}/{label}',
-                    np.mean(value),
+                    inputs[f'{self._metric_prefix}/{label}'],
                     step_num,
                 )
 

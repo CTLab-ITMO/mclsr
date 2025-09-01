@@ -11,7 +11,6 @@ from utils import (
 
 
 class SASRec(BaseModel):
-
     def __init__(
             self,
             num_items,
@@ -71,9 +70,7 @@ class SASRec(BaseModel):
             torch.arange(start=seq_len - 1, end=-1, step=-1, device=mask.device)[None]
             .tile([batch_size, 1]).long()
         )  # (batch_size, seq_len)
-        positions_mask = positions < all_sample_lengths[:, None]  # (batch_size, max_seq_len)
-
-        positions = positions[positions_mask]  # (all_batch_events)
+        positions = positions[torch.flip(mask, dims=[-1])]  # (all_batch_events)
         position_embeddings = self._position_embeddings(positions)  # (all_batch_events, embedding_dim)
         position_embeddings, _ = create_masked_tensor(
             data=position_embeddings,

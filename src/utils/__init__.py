@@ -1,9 +1,7 @@
-from .registry import MetaParent
 from .grid_search import Params
 from .tensorboards import *
 
 __all__ = [
-    'MetaParent',
     'Params',
 ]
 
@@ -85,34 +83,6 @@ def get_activation_function(name, **kwargs):
         raise ValueError('Unknown activation function name `{}`'.format(name))
 
 
-def dict_to_str(x, params):
-    parts = []
-    for k, v in x.items():
-        if k in params:
-            if isinstance(v, dict):
-                # part = '_'.join([f'{k}-{sub_part}' for sub_part in dict_to_str(v, params[k]).split('_')])
-                part = '_'.join(
-                    [
-                        f'{sub_part}'
-                        for sub_part in dict_to_str(v, params[k]).split('_')
-                    ],
-                )
-            elif isinstance(v, tuple) or isinstance(v, list):
-                sub_strings = []
-                for i, sub_value in enumerate(v):
-                    sub_strings.append(
-                        f'({i})_{dict_to_str(v[i], params[k][i])}',
-                    )
-                part = f'({"_".join(sub_strings)})'
-            else:
-                # part = f'{k}-{v}'
-                part = f'{v}'
-            parts.append(part)
-        else:
-            continue
-    return '_'.join(parts).replace('.', '-')
-
-
 def create_masked_tensor(data, lengths):
     batch_size = lengths.shape[0]
     max_sequence_length = lengths.max().item()
@@ -135,10 +105,7 @@ def create_masked_tensor(data, lengths):
         )  # (batch_size, max_seq_len, emb_dim)
 
     mask = (
-        torch.arange(end=max_sequence_length, device=DEVICE)[None].tile(
-            [batch_size, 1],
-        )
-        < lengths[:, None]
+        torch.arange(end=max_sequence_length, device=DEVICE)[None].tile([batch_size, 1]) < lengths[:, None]
     )  # (batch_size, max_seq_len)
 
     padded_tensor[mask] = data

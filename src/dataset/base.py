@@ -1,19 +1,16 @@
 from collections import defaultdict
+import copy
+import logging
+import numpy as np
+import os
+import scipy.sparse as sp
+from scipy.sparse import csr_matrix
+from tqdm import tqdm
 
-# from tqdm import tqdm
+import torch
 
 from utils import DEVICE
 
-# import pickle
-# import torch
-# import numpy as np
-# import scipy.sparse as sp
-# from scipy.sparse import csr_matrix
-
-import os
-import logging
-
-import copy
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +45,7 @@ class EvalSampler:
         return len(self._dataset)
 
     def __getitem__(self, index):
-        return self._dataset[index]
+        return copy.deepcopy(self._dataset[index])
 
 
 # Dataset processors
@@ -74,18 +71,18 @@ class BaseDataset:
     
 
 class BaseSequenceDataset(BaseDataset):
-    def __init__(self, data_dir_path):
+    def __init__(self, data_dir_path, train_extended=False):
         # process train data
         train_dataset, train_max_user, train_max_item = self._create_history_dataset(
-            filepath=os.path.join(data_dir_path, 'train_history_their.txt'), extended=False
+            filepath=os.path.join(data_dir_path, 'train_history.txt'), extended=train_extended
         )
 
         # process valid data
         valid_dataset, valid_history_max_user, valid_history_max_item = self._create_history_dataset(
-            filepath=os.path.join(data_dir_path, 'valid_history_their.txt'), extended=False
+            filepath=os.path.join(data_dir_path, 'valid_history.txt')
         )
         valid_targets, valid_targets_max_user, valid_targets_max_item = self._create_target_dataset(
-            filepath=os.path.join(data_dir_path, 'valid_target_their.txt')
+            filepath=os.path.join(data_dir_path, 'valid_target.txt')
         )
         for valid_sample in valid_dataset:
             valid_sample['target.ids'] = valid_targets[valid_sample['user.ids'][0]]
@@ -93,10 +90,10 @@ class BaseSequenceDataset(BaseDataset):
 
         # process test data
         test_dataset, test_history_max_user, test_history_max_item = self._create_history_dataset(
-            filepath=os.path.join(data_dir_path, 'test_history_their.txt'), extended=False
+            filepath=os.path.join(data_dir_path, 'test_history.txt')
         )
         test_targets, test_targets_max_user, test_targets_max_item = self._create_target_dataset(
-            filepath=os.path.join(data_dir_path, 'test_target_their.txt')
+            filepath=os.path.join(data_dir_path, 'test_target.txt')
         )
         for test_sample in test_dataset:
             test_sample['target.ids'] = test_targets[test_sample['user.ids'][0]]
@@ -137,9 +134,8 @@ class BaseSequenceDataset(BaseDataset):
             for line in f:
                 parts = line.strip('\n').split(' ')
                 user_id = int(parts[0])
-                item_ids = [int(i) for i in parts[1:]]
-                item_ids = item_ids[-20:]
-                assert len(item_ids) >= 4  # For train users we expect all 5 events, for valid and test we expect at least 4 (80% of all user events)
+                item_ids = [int(i) for i in parts[1:]][-20:]
+
                 if extended:
                     for idx in range(1, len(item_ids)):
                         item_ids_subsequence = item_ids[:idx]
@@ -175,98 +171,12 @@ class BaseSequenceDataset(BaseDataset):
                 user_id = int(parts[0])
                 item_ids = [int(i) for i in parts[1:]]
 
+                assert user_id not in targets
                 targets[user_id] = item_ids
                 max_user = max(max_user, user_id)
                 max_item = max(max_item, max(item_ids))
 
         return targets, max_user, max_item
-    
-
-class SequenceDataset(BaseDataset):
-    def __init__(
-        self,
-        train_sampler,
-        validation_sampler,
-        test_sampler,
-        num_users,
-        num_items,
-        max_sequence_length,
-    ):
-        self._train_sampler = train_sampler
-        self._validation_sampler = validation_sampler
-        self._test_sampler = test_sampler
-        self._num_users = num_users
-        self._num_items = num_items
-        self._max_sequence_length = max_sequence_length
-
-    @classmethod
-    def create_from_config(cls, config, **kwargs):
-        data_dir_path = os.path.join(
-            config['path_to_data_dir'],
-            config['name'],
-        )
-
-        common_params_for_creation = {
-            'dir_path': data_dir_path,
-            'max_sequence_length': config['max_sequence_length'],
-            'use_cached': config.get('use_cached', False),
-        }
-
-        train_dataset, train_max_user_id, train_max_item_id, train_seq_len = (
-            cls._create_dataset(part='train', **common_params_for_creation)
-        )
-        validation_dataset, valid_max_user_id, valid_max_item_id, valid_seq_len = (
-            cls._create_dataset(part='valid', **common_params_for_creation)
-        )
-        test_dataset, test_max_user_id, test_max_item_id, test_seq_len = (
-            cls._create_dataset(part='test', **common_params_for_creation)
-        )
-
-        max_user_id = max([train_max_user_id, valid_max_user_id, test_max_user_id])
-        max_item_id = max([train_max_item_id, valid_max_item_id, test_max_item_id])
-        max_seq_len = max([train_seq_len, valid_seq_len, test_seq_len])
-
-        logger.info('Train dataset size: {}'.format(len(train_dataset)))
-        logger.info('Test dataset size: {}'.format(len(test_dataset)))
-        logger.info('Max user id: {}'.format(max_user_id))
-        logger.info('Max item id: {}'.format(max_item_id))
-        logger.info('Max sequence length: {}'.format(max_seq_len))
-
-        samplers_config = config['samplers']
-        train_sampler = TrainSampler.create_from_config(
-            samplers_config,
-            dataset=train_dataset,
-            num_users=max_user_id,
-            num_items=max_item_id,
-        )
-        validation_sampler = EvalSampler.create_from_config(
-            samplers_config,
-            dataset=validation_dataset,
-            num_users=max_user_id,
-            num_items=max_item_id,
-        )
-        test_sampler = EvalSampler.create_from_config(
-            samplers_config,
-            dataset=test_dataset,
-            num_users=max_user_id,
-            num_items=max_item_id,
-        )
-
-        return cls(
-            train_sampler=train_sampler,
-            validation_sampler=validation_sampler,
-            test_sampler=test_sampler,
-            num_users=max_user_id,
-            num_items=max_item_id,
-            max_sequence_length=max_seq_len,
-        )
-
-    def get_samplers(self):
-        return (
-            self._train_sampler,
-            self._validation_sampler,
-            self._test_sampler,
-        )
 
 
 class GraphDataset(BaseDataset):
@@ -302,13 +212,13 @@ class GraphDataset(BaseDataset):
         self._train_user_interactions = np.array(train_user_interactions)
         self._train_item_interactions = np.array(train_item_interactions)
 
-        self._graph = self._build_or_load_bipartite_graph(
+        self.graph = self._build_or_load_bipartite_graph(
             graph_dir_path,
             train_user_interactions,
             train_item_interactions
         )
 
-        self._user_graph = (
+        self.user_graph = (
             self._build_or_load_similarity_graph(
                 'user', 
                 self._train_user_interactions, 
@@ -320,7 +230,7 @@ class GraphDataset(BaseDataset):
             else None
         )
 
-        self._item_graph = (
+        self.item_graph = (
             self._build_or_load_similarity_graph(
                 'item', 
                 self._train_user_interactions, 
@@ -515,14 +425,3 @@ class GraphDataset(BaseDataset):
 
     def get_samplers(self):
         return self._dataset.get_samplers()
-
-    @property
-    def meta(self):
-        meta = {
-            'user_graph': self._user_graph,
-            'item_graph': self._item_graph,
-            'graph': self._graph,
-            **self._dataset.meta,
-        }
-        return meta
-

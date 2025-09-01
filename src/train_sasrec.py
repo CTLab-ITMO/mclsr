@@ -1,35 +1,22 @@
+import torch
+from torch.utils.data import DataLoader
+
+from callbacks import CompositeCallback, InferenceCallback, MetricCallback
+from dataloader import batch_processor
+from dataset import SASRecDataset
+from loss import SASRecLoss
+from metric import HitRateMetric, NDCGMetric, RecallMetric
+from models import MCLSR
+from optimizer import Optimizer
+
 import utils
 from utils import (
-    parse_args,
     create_logger,
     DEVICE,
     fix_random_seed,
     ensure_checkpoints_dir,
 )
 
-# from callbacks import BaseCallback
-# from dataset import BaseDataset
-# from dataloader import BaseDataloader
-# from loss import BaseLoss
-# from models import BaseModel
-# from optimizer import BaseOptimizer
-
-from callbacks import CompositeCallback, InferenceCallback, MetricCallback
-from dataset import SASRecDataset
-from loss import SASRecLoss
-from metric import CompositeMetric, HitRateMetric, NDCGMetric, RecallMetric
-from models import SASRec
-from optimizer import Optimizer
-
-import copy
-import json
-import os
-import torch
-
-
-from torch.utils.data import DataLoader
-
-from dataloader import batch_processor
 from train_base import train
 
 
@@ -54,20 +41,9 @@ def main():
 
     tensorboard_writer = utils.tensorboards.TensorboardWriter(EXPERIMENT_NAME)
     utils.tensorboards.GLOBAL_TENSORBOARD_WRITER = tensorboard_writer
-
-    # log_dir = tensorboard_writer.log_dir
-    # config_save_path = os.path.join(log_dir, 'config.json')
-    # with open(config_save_path, 'w') as f:
-    #     json.dump(config, f, indent=2)
     
-    # logger.debug('Training config: \n{}'.format(json.dumps(config, indent=2)))
-    LOGGER.debug(f'Current DEVICE: {DEVICE}')
-    # logger.info(f"Experiment config saved to: {config_save_path}")
-
     dataset = SASRecDataset(data_dir_path='../data/Clothing')
     train_sampler, valid_sampler, test_sampler = dataset.get_samplers()
-
-    # train_sampler, validation_sampler, test_sampler = dataset.get_samplers()
 
     train_dataloader = DataLoader(
         dataset=train_sampler,
@@ -79,21 +55,21 @@ def main():
     valid_dataloader = DataLoader(
         dataset=valid_sampler,
         batch_size=VALID_BATCH_SIZE,
-        shuffle=True,
-        drop_last=True,
+        shuffle=False,
+        drop_last=False,
         collate_fn=batch_processor,
     )
     test_dataloader = DataLoader(
         dataset=test_sampler,
         batch_size=VALID_BATCH_SIZE,
-        shuffle=True,
-        drop_last=True,
+        shuffle=False,
+        drop_last=False,
         collate_fn=batch_processor,
     )
 
     model = SASRec(
         num_items=dataset.num_items + 2,
-        max_sequence_length=25,
+        max_sequence_length=20,
         embedding_dim=EMBEDDING_DIM,
         num_heads=NUM_HEADS,
         num_layers=NUM_LAYERS,
@@ -112,11 +88,6 @@ def main():
         lr=0.001
     )
     
-    inferenece_metrics = {
-        f'{metric_name}@{k}': metric_cls(k=k)
-        for metric_cls, metric_name in [(HitRateMetric, 'hit'), (NDCGMetric, 'ndcg'), (RecallMetric, 'recall')] 
-        for k in [5, 10, 20, 50]
-    }
     callback = CompositeCallback(
         callbacks=[
             MetricCallback(
@@ -127,14 +98,24 @@ def main():
                 model=model,
                 dataloader=valid_dataloader,
                 on_step=64,
-                metrics=inferenece_metrics,
+                metrics={
+                    f'{metric_name}@{k}': metric_cls(k=k)
+                    for metric_cls, metric_name in [
+                        (HitRateMetric, 'hit'), (NDCGMetric, 'ndcg'), (RecallMetric, 'recall')
+                    ] for k in [5, 10, 20, 50]
+                },
                 metric_prefix='validation'
             ),
             InferenceCallback(
                 model=model,
                 dataloader=test_dataloader,
                 on_step=256,
-                metrics=inferenece_metrics,
+                metrics={
+                    f'{metric_name}@{k}': metric_cls(k=k)
+                    for metric_cls, metric_name in [
+                        (HitRateMetric, 'hit'), (NDCGMetric, 'ndcg'), (RecallMetric, 'recall')
+                    ] for k in [5, 10, 20, 50]
+                },
                 metric_prefix='eval'
             )
         ]

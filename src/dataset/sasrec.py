@@ -17,7 +17,7 @@ class SASRecTrainSampler(TrainSampler):
         self._num_items = num_items
 
     def __getitem__(self, index):
-        sample = self._dataset[index]
+        sample = copy.deepcopy(self._dataset[index])
 
         item_sequence = sample['item.ids'][:-1]
         next_item_sequence = sample['item.ids'][1:]

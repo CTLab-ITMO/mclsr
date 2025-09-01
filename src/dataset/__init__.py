@@ -1,4 +1,10 @@
-from .base import BaseDataset
+from .base import BaseDataset, GraphDataset
 from .sasrec import SASRecDataset
+from .mclsr import MCLSRDataset
 
-__all__ = ['BaseDataset']
+__all__ = [
+    'BaseDataset',
+    'GraphDataset',
+    'MCLSRDataset',
+    'SASRecDataset'
+]

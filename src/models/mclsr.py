@@ -3,17 +3,12 @@ import torch.nn as nn
 
 from utils import create_masked_tensor
 
-from base import TorchModel
+from base import BaseModel
 
 
-class MCLSRModel(TorchModel):
+class MCLSR(BaseModel):
     def __init__(
         self,
-        sequence_prefix,
-        user_prefix,
-        labels_prefix,
-        negatives_prefix,
-        candidate_prefix,
         num_users,
         num_items,
         max_sequence_length,
@@ -29,40 +24,26 @@ class MCLSRModel(TorchModel):
         initializer_range=0.02,
     ):
         super().__init__()
-        self._sequence_prefix = sequence_prefix
-        self._user_prefix = user_prefix
-        self._labels_prefix = labels_prefix
-        self._negatives_prefix = negatives_prefix
-        self._candidate_prefix = candidate_prefix
-
         self._num_users = num_users
         self._num_items = num_items
-
         self._embedding_dim = embedding_dim
-
         self._num_graph_layers = num_graph_layers
         self._graph_dropout = graph_dropout
-
         self._alpha = alpha
-
         self._graph = common_graph
         self._user_graph = user_graph
         self._item_graph = item_graph
 
         self._item_embeddings = nn.Embedding(
-            num_embeddings=num_items
-            + 2,  # add zero embedding + mask embedding
+            num_embeddings=num_items,
             embedding_dim=embedding_dim,
         )
         self._position_embeddings = nn.Embedding(
-            num_embeddings=max_sequence_length
-            + 1,  # in order to include `max_sequence_length` value
+            num_embeddings=max_sequence_length,
             embedding_dim=embedding_dim,
         )
-
         self._user_embeddings = nn.Embedding(
-            num_embeddings=num_users
-            + 2,  # add zero embedding + mask embedding
+            num_embeddings=num_users,
             embedding_dim=embedding_dim,
         )
 
@@ -152,28 +133,6 @@ class MCLSRModel(TorchModel):
 
         self._init_weights(initializer_range)
 
-    @classmethod
-    def create_from_config(cls, config, **kwargs):
-        return cls(
-            sequence_prefix=config['sequence_prefix'],
-            user_prefix=config['user_prefix'],
-            labels_prefix=config['labels_prefix'],
-            negatives_prefix=config.get('negatives_prefix', 'negatives'),
-            candidate_prefix=config['candidate_prefix'],
-            num_users=kwargs['num_users'],
-            num_items=kwargs['num_items'],
-            max_sequence_length=kwargs['max_sequence_length'],
-            embedding_dim=config['embedding_dim'],
-            num_graph_layers=config['num_graph_layers'],
-            common_graph=kwargs['graph'],
-            user_graph=kwargs['user_graph'],
-            item_graph=kwargs['item_graph'],
-            dropout=config.get('dropout', 0.0),
-            layer_norm_eps=config.get('layer_norm_eps', 1e-5),
-            graph_dropout=config.get('graph_dropout', 0.0),
-            initializer_range=config.get('initializer_range', 0.02),
-        )
-
     def _apply_graph_encoder(self, embeddings, graph, use_mean=False):
         assert self.training  # Here we use graph only in training_mode
 
@@ -199,13 +158,9 @@ class MCLSRModel(TorchModel):
             return all_embeddings[-1]
 
     def forward(self, inputs):
-        all_sample_events = inputs[
-            '{}.ids'.format(self._sequence_prefix)
-        ]  # (all_batch_events)
-        all_sample_lengths = inputs[
-            '{}.length'.format(self._sequence_prefix)
-        ]  # (batch_size)
-        user_ids = inputs['{}.ids'.format(self._user_prefix)]  # (batch_size)
+        all_sample_events = inputs['item.ids']  # (all_batch_events)
+        all_sample_lengths = inputs['item.length']  # (batch_size)
+        user_ids = inputs['user.ids']  # (batch_size)
 
         embeddings = self._item_embeddings(
             all_sample_events,
@@ -225,34 +180,30 @@ class MCLSRModel(TorchModel):
                 start=seq_len - 1,
                 end=-1,
                 step=-1,
-                device=mask.device,
+                device=mask.device
             )[None]
             .tile([batch_size, 1])
             .long()
         )  # (batch_size, seq_len)
-        positions_mask = (
-            positions < all_sample_lengths[:, None]
-        )  # (batch_size, max_seq_len)
+        positions_mask = positions < all_sample_lengths[:, None] # (batch_size, max_seq_len)
 
         positions = positions[positions_mask]  # (all_batch_events)
         position_embeddings = self._position_embeddings(
-            positions,
+            positions
         )  # (all_batch_events, embedding_dim)
         position_embeddings, _ = create_masked_tensor(
             data=position_embeddings,
-            lengths=all_sample_lengths,
+            lengths=all_sample_lengths
         )  # (batch_size, seq_len, embedding_dim)
         assert torch.allclose(position_embeddings[~mask], embeddings[~mask])
         
-        positioned_embeddings = (
-            embeddings + position_embeddings
-        )  # (batch_size, seq_len, embedding_dim)
+        positioned_embeddings = embeddings + position_embeddings  # (batch_size, seq_len, embedding_dim)
         
         positioned_embeddings = self._layernorm(
-            positioned_embeddings,
+            positioned_embeddings
         )  # (batch_size, seq_len, embedding_dim)
         positioned_embeddings = self._dropout(
-            positioned_embeddings,
+            positioned_embeddings
         )  # (batch_size, seq_len, embedding_dim)
         positioned_embeddings[~mask] = 0
 
@@ -366,8 +317,6 @@ class MCLSRModel(TorchModel):
             negative_ids = inputs['{}.ids'.format(self._negatives_prefix)] # (batch_size, num_negatives)
             negative_embeddings = self._item_embeddings(negative_ids) # (batch_size, num_negatives, embedding_dim)
 
-            # import code; code.interact(local=locals())
-
             return {
                 # L_P (formula 14)
                 'combined_representation': combined_representation,
@@ -390,47 +339,18 @@ class MCLSRModel(TorchModel):
             }
         else:  # eval mode
             # formula 16: R(u,N) = Top-N((I_s)^T * h_o)
-            if '{}.ids'.format(self._candidate_prefix) in inputs:
-                candidate_events = inputs[
-                    '{}.ids'.format(self._candidate_prefix)
-                ]  # (all_batch_candidates)
-                candidate_lengths = inputs[
-                    '{}.length'.format(self._candidate_prefix)
+            candidate_embeddings = (
+                self._item_embeddings.weight
+            )  # (num_items, embedding_dim)
+            candidate_scores = torch.einsum(
+                'bd,nd->bn',
+                sequential_representation, # I_s
+                candidate_embeddings, # all h_v
+            )  # (batch_size, num_items)
 
-                ]  # (batch_size)
-
-                candidate_embeddings = self._item_embeddings(
-                    candidate_events,
-                )  # (all_batch_candidates, embedding_dim)
-
-                candidate_embeddings, _ = create_masked_tensor(
-                    data=candidate_embeddings,
-                    lengths=candidate_lengths,
-                )  # (batch_size, num_candidates, embedding_dim)
-
-                candidate_scores = torch.einsum(
-                    'bd,bnd->bn',
-                    sequential_representation, # I_s
-                    candidate_embeddings, # h_o (and h_k)
-                )  # (batch_size, num_candidates)
-            else:
-                candidate_embeddings = (
-                    self._item_embeddings.weight
-                )  # (num_items, embedding_dim)
-                candidate_scores = torch.einsum(
-                    'bd,nd->bn',
-                    sequential_representation, # I_s
-                    candidate_embeddings, # all h_v
-                )  # (batch_size, num_items)
-                candidate_scores[:, 0] = -torch.inf
-                candidate_scores[:, self._num_items + 1 :] = -torch.inf
-
-
-            values, indices = torch.topk(
+            _, indices = torch.topk(
                 candidate_scores,
-                k=50,
-                dim=-1,
-                largest=True,
-            )  # (batch_size, 100), (batch_size, 100)
+                k=50, dim=-1, largest=True
+            )  # (batch_size, 50)
 
             return indices

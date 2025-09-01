@@ -1,31 +1,23 @@
-import os
+import copy
+import numpy as np
 
 from dataset.base import TrainSampler, EvalSampler, BaseSequenceDataset
 
-from collections import defaultdict
-import random
-
 
 class MCLSRTrainSampler(TrainSampler):
-    def __init__(self, dataset, num_users, num_items):
+    def __init__(self, dataset, num_users, num_items, num_negatives):
         super().__init__(dataset)
         self._num_users = num_users
         self._num_items = num_items
-        # self._num_negatives = num_negatives
-        # self._all_items_set = set(range(1, num_items + 1))
-        # self._user_to_all_seen_items = user_to_all_seen_items
+        self._num_negatives = num_negatives
 
     def __getitem__(self, index):
-        sample = self._dataset[index]
+        sample = copy.deepcopy(self._dataset[index])
 
         item_sequence = sample['item.ids'][:-1]
         positive_item = sample['item.ids'][-1]
 
-        # user_seen = self._user_to_all_seen_items[user_id]
-        # unseen_items = list(self._all_items_set - user_seen)
-        # negatives = random.sample(unseen_items, self._num_negatives)
-        
-        negatives = [random.randint(1, self._num_items) for _ in range(self._num_negatives)]
+        negatives = np.random.randint(0, self._num_items + 1, (self._num_negatives,)).tolist()
 
         return {
             'user.ids': sample['user.ids'],
@@ -47,11 +39,16 @@ class MCLSREvalSampler(EvalSampler):
 
 
 class MCLSRDataset(BaseSequenceDataset):
+    def __init__(self, data_dir_path, num_negatives):
+        super().__init__(data_dir_path=data_dir_path, train_extended=True)
+        self._num_negatives = num_negatives
+    
     def get_samplers(self):
         train_sampler = MCLSRTrainSampler(
             dataset=self._train_dataset, 
             num_users=self._num_users, 
-            num_items=self._num_items
+            num_items=self._num_items,
+            num_negatives=self._num_negatives
         )
         valid_sampler = MCLSREvalSampler(
             dataset=self._valid_dataset, 

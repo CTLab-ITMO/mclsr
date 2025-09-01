@@ -31,7 +31,3 @@ class Optimizer:
             )
 
         self._optimizer.step()
-
-    def state_dict(self):
-        state_dict = {'optimizer': self._optimizer.state_dict()}
-        return state_dict

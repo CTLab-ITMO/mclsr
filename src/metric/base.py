@@ -53,7 +53,7 @@ class NDCGMetric(BaseMetric):
         positions = torch.arange(2, self._k + 2, device=predictions.device)
         weights = 1. / torch.log2(positions.float())
 
-        is_hit = (predictions[:, :, None] == padded_labels[:, None, :]).max(dim=-1).values  # (batch_size, k)
+        is_hit = (predictions[:, :, None] == padded_labels[:, None, :]).sum(dim=-1)  # (batch_size, k)
 
         num_ideal_hits = torch.minimum(labels_lengths, torch.as_tensor(self._k, device=labels_lengths.device, dtype=labels_lengths.dtype))  # (batch_size)
         ideal_mask = (torch.arange(self._k, device=is_hit.device, dtype=weights.dtype)[None, :].tile(dims=[batch_size, 1]) < num_ideal_hits[:, None])  # (batch_size, k)
@@ -80,7 +80,7 @@ class RecallMetric(BaseMetric):
         padded_labels, labels_mask = create_masked_tensor(data=labels_flat, lengths=labels_lengths)
         padded_labels[~labels_mask] = -1
 
-        is_hit = (predictions[:, :, None] == padded_labels[:, None, :]).max(dim=-1).values  # (batch_size, k)
+        is_hit = (predictions[:, :, None] == padded_labels[:, None, :]).sum(dim=-1).float()  # (batch_size, k)
         recall = is_hit.sum(dim=-1) / torch.minimum(labels_lengths, torch.as_tensor(self._k, device=labels_lengths.device, dtype=labels_lengths.dtype))  # (batch_size)
         
         return recall.tolist()
@@ -100,6 +100,6 @@ class HitRateMetric(BaseMetric):
         padded_labels, labels_mask = create_masked_tensor(data=labels_flat, lengths=labels_lengths)
         padded_labels[~labels_mask] = -1
         
-        hit_rate = (predictions[:, :, None] == padded_labels[:, None, :]).max(dim=-1).values.max(dim=-1).values.float()  # (batch_size)
+        hit_rate = (predictions[:, :, None] == padded_labels[:, None, :]).sum(dim=-1).max(dim=-1).values.float()  # (batch_size)
         
         return hit_rate.tolist()
