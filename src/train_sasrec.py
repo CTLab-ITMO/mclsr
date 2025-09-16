@@ -6,7 +6,7 @@ from dataloader import batch_processor
 from dataset import SASRecDataset
 from loss import SASRecLoss
 from metric import HitRateMetric, NDCGMetric, RecallMetric
-from models import MCLSR
+from models import SASRec
 from optimizer import Optimizer
 
 import utils
@@ -42,7 +42,7 @@ def main():
     tensorboard_writer = utils.tensorboards.TensorboardWriter(EXPERIMENT_NAME)
     utils.tensorboards.GLOBAL_TENSORBOARD_WRITER = tensorboard_writer
     
-    dataset = SASRecDataset(data_dir_path='../data/Clothing')
+    dataset = SASRecDataset(data_dir_path='./data/Clothing')
     train_sampler, valid_sampler, test_sampler = dataset.get_samplers()
 
     train_dataloader = DataLoader(

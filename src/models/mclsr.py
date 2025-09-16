@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from utils import create_masked_tensor
 
-from base import BaseModel
+from models import BaseModel
 
 
 class MCLSR(BaseModel):
