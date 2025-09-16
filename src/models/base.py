@@ -23,7 +23,9 @@ class BaseModel(nn.Module):
 
     @staticmethod
     def _get_last_embedding(embeddings, mask):
-        last_item_offsets = torch.sum(mask, dim=-1) - 1  # (batch_size)
+        lengths = torch.sum(mask, dim=-1)
+        last_item_offsets = torch.cumsum(lengths, dim=-1) - 1  # (batch_size)
         flatten_embeddings = embeddings[mask]  # (total_num_items, ...)
         last_embeddings = flatten_embeddings[last_item_offsets]  # (batch_size, ...)
         return last_embeddings
+
