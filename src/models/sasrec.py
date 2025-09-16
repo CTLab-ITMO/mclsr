@@ -30,11 +30,11 @@ class SASRec(BaseModel):
         self._embedding_dim = embedding_dim
 
         self._item_embeddings = nn.Embedding(
-            num_embeddings=num_items,
+            num_embeddings=num_items + 2,
             embedding_dim=embedding_dim
         )
         self._position_embeddings = nn.Embedding(
-            num_embeddings=max_sequence_length,
+            num_embeddings=max_sequence_length + 1,
             embedding_dim=embedding_dim
         )
 

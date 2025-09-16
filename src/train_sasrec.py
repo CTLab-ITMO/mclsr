@@ -22,7 +22,7 @@ from train_base import train
 
 LOGGER = create_logger(name=__name__)
 SEED_VAL = 42
-EXPERIMENT_NAME = 'sasrec_clothing_all_data_their'
+EXPERIMENT_NAME = 'sasrec_clothing'
 
 TRAIN_BATCH_SIZE = 128
 VALID_BATCH_SIZE = 128
@@ -34,6 +34,7 @@ DROPOUT = 0.3
 OPTIMIZER = 'adam'
 CLIP_GRAD_THRESHOLD = 1.0
 TRAIN_EPOCH_NUM = 100
+MAX_SEQUENCE_LENGTH = 20
 
 
 def main():
@@ -68,8 +69,8 @@ def main():
     )
 
     model = SASRec(
-        num_items=dataset.num_items + 2,
-        max_sequence_length=20,
+        num_items=dataset.num_items,
+        max_sequence_length=MAX_SEQUENCE_LENGTH,
         embedding_dim=EMBEDDING_DIM,
         num_heads=NUM_HEADS,
         num_layers=NUM_LAYERS,
