@@ -135,7 +135,6 @@ class FpsLoss(BaseLoss):
         )
         self._normalize_embeddings = normalize_embeddings
         self._output_prefix = output_prefix
-        print(self._tau)
 
     @classmethod
     def create_from_config(cls, config, **kwargs):
