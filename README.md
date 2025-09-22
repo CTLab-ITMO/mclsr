@@ -5,7 +5,7 @@ This repository contains a PyTorch implementation of the paper:
 *Ziyang Wang, Huoyu Liu, Wei Wei, Yue Hu, Xian-Ling Mao, Shaojian He, Rui Fang, Dangyang chen* <br>
 **CIKM 2022**
 
-**[Arxiv paper link](https://arxiv.org/abs/2208.13007)**
+**[arXiv paper link](https://arxiv.org/abs/2208.13007)**
 
 The official source code for this paper was not made publicly available. This implementation was written from scratch based on the paper's description to provide a working and reproducible benchmark for the research community.
 
@@ -70,29 +70,7 @@ To prepare the raw data for training, run the Jupyter notebooks provided in the 
 ## Model training
 To train a model, simply run the following from the root directory:
 ```shell
-train --params /path/to/config
+python src/train_mclsr.py
+
+python src/train_sasrec.py
 ```
-
-Alternatively, if you prefer to use your own virtual environment (and already have all dependencies installed) but don't want to install the `irec` package into it, ensure your venv is activated and run this from the project's root directory:
-
-```shell
-PYTHONPATH=$PWD/src python -m irec.train --params /path/to/config
-```
-
-The script has 1 input argument: `params` which is the path to the json file with model configuration. The example of such file can be found [here](./configs). This directory contrains json files with model hyperparameters and data preparation instructions. It should contain the following keys:
-
--`experiment_name` Name of the experiment
-
--`dataset` Information about the dataset
-
--`dataloader` Settings for dataloader
-
--`model` Model hyperparameters
-
--`optimizer` Optimizer hyperparameters
-
--`loss` Naming of different loss components
-
--`callbacks` Different additional traning 
-
--`use_wandb` Enable Weights & Biases logging for experiment tracking
