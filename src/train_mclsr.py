@@ -92,41 +92,41 @@ def main():
     ).to(DEVICE)
 
     loss = CompositeLoss(
-    losses=[
-        SamplesSoftmaxLoss(
-            queries_prefix="combined_representation",
-            positive_prefix="label_representation",
-            negative_prefix="negative_representation",
-            output_prefix="downstream_loss",
-        ),
+        losses=[
+            SamplesSoftmaxLoss(
+                queries_prefix="combined_representation",
+                positive_prefix="label_representation",
+                negative_prefix="negative_representation",
+                output_prefix="downstream_loss",
+            ),
 
-        FpsLoss(
-            fst_embeddings_prefix="sequential_representation",
-            snd_embeddings_prefix="graph_representation",
-            tau=0.5,
-            normalize_embeddings=True,
-            use_mean=True,
-            output_prefix="contrastive_interest_loss",
-        ),
+            FpsLoss(
+                fst_embeddings_prefix="sequential_representation",
+                snd_embeddings_prefix="graph_representation",
+                tau=0.5,
+                normalize_embeddings=True,
+                use_mean=True,
+                output_prefix="contrastive_interest_loss",
+            ),
 
-        FpsLoss(
-            fst_embeddings_prefix="user_graph_user_embeddings",
-            snd_embeddings_prefix="common_graph_user_embeddings",
-            tau=0.5,
-            normalize_embeddings=True,
-            use_mean=True,
-            output_prefix="contrastive_user_feature_loss",
-        ),
+            FpsLoss(
+                fst_embeddings_prefix="user_graph_user_embeddings",
+                snd_embeddings_prefix="common_graph_user_embeddings",
+                tau=0.5,
+                normalize_embeddings=True,
+                use_mean=True,
+                output_prefix="contrastive_user_feature_loss",
+            ),
 
-        FpsLoss(
-            fst_embeddings_prefix="item_graph_item_embeddings",
-            snd_embeddings_prefix="common_graph_item_embeddings",
-            tau=0.5,
-            normalize_embeddings=True,
-            use_mean=True,
-            output_prefix="contrastive_item_feature_loss",
-        ),
-    ],
+            FpsLoss(
+                fst_embeddings_prefix="item_graph_item_embeddings",
+                snd_embeddings_prefix="common_graph_item_embeddings",
+                tau=0.5,
+                normalize_embeddings=True,
+                use_mean=True,
+                output_prefix="contrastive_item_feature_loss",
+            ),
+        ],
     weights=[1.0, 1.0, 0.05, 0.05],
     output_prefix="loss",
 )
@@ -141,10 +141,11 @@ def main():
     
     callback = CompositeCallback(
         callbacks=[
-            MetricCallback(
-                on_step=1,
-                value_prefix='loss'
-            ),
+            MetricCallback(on_step=1, value_prefix='loss'),
+            MetricCallback(on_step=1, value_prefix='downstream_loss'),
+            MetricCallback(on_step=1, value_prefix='contrastive_interest_loss'),
+            MetricCallback(on_step=1, value_prefix='contrastive_user_feature_loss'),
+            MetricCallback(on_step=1, value_prefix='contrastive_item_feature_loss'),
             InferenceCallback(
                 model=model,
                 dataloader=valid_dataloader,
