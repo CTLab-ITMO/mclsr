@@ -3,8 +3,8 @@ requires = ["setuptools>=64.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "irec"
-description = "Graph Sequentional recomendation system framework"
+name = "mclsr"
+description = "Multi-level Contrastive Learning Sequential Recommendation Framework"
 version = "1.0"
 requires-python = ">=3.12"
 
@@ -30,6 +30,3 @@ dev = [
     "types-tqdm==4.67.*",
     "scipy-stubs==1.15.*",
 ]
-
-[project.scripts]
-train="irec.train:main"
