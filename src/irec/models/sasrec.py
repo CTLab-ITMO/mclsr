@@ -199,7 +199,17 @@ class SasRecInBatchModel(SasRecModel, config_name='sasrec_in_batch'):
             return {
                 'query_embeddings': in_batch_queries_embeddings,
                 'positive_embeddings': in_batch_positive_embeddings,
-                'negative_embeddings': in_batch_negative_embeddings
+                'negative_embeddings': in_batch_negative_embeddings,
+
+                # --- ID PASS-THROUGH FOR DOWNSTREAM LOSS OPERATIONS ---
+                # We pass the raw item IDs to the loss function to enable:
+                # 1. False Negative Masking: Identifying and neutralizing cases where a positive 
+                #    item for one user accidentally appears as a negative sample for another 
+                #    user in the same batch (critical for In-Batch Negatives stability).
+                # 2. Per-item LogQ Correction: Mapping item IDs to their global frequencies 
+                #    to subtract log(Q) based on the specific item popularity.
+                'positive_ids': in_batch_positive_events,
+                'negative_ids': in_batch_negative_ids
             }
         else:  # eval mode
             last_embeddings = self._get_last_embedding(embeddings, mask)  # (batch_size, embedding_dim)
