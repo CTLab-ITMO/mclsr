@@ -392,10 +392,25 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
 
         if self._use_logq:
             if self._logq_prefix is not None:
-                log_q = inputs[self._logq_prefix]        # (B, 1+N)
+                # Retrieve log probabilities (log frequencies) from the input dictionary
+                # Expects a tensor of shape (BatchSize, 1 + NumNegatives)
+                log_q = inputs[self._logq_prefix]        # (B, 1 + N)
                 log_q_pos = log_q[:, :1]                 # (B, 1)
                 log_q_neg = log_q[:, 1:]                 # (B, N)
 
+                # --- CORRECTION BASED ON GOOGLE PAPER (Eq. 3 & Section 3) ---
+                # According to "Sampling-Bias-Corrected Neural Modeling for Large Corpus 
+                # Item Recommendations" (Google, 2019), Section 3 "MODELING FRAMEWORK":
+                # "we correct EACH logit s(x_i, y_j) by the following equation: 
+                # s_c(x_i, y_j) = s(x_i, y_j) - log(p_j)"
+                # 
+                # Applying this correction to BOTH positive and negative scores is critical 
+                # to obtain an unbiased estimator for the full softmax. Omitting the 
+                # correction for positive_scores leads to a sampling bias where 
+                # popular items are unfairly penalized only when they act as negatives, 
+                # but not when they act as positives.
+                
+                positive_scores = positive_scores - log_q_pos
                 negative_scores = negative_scores - log_q_neg
 
         all_scores = torch.cat(
