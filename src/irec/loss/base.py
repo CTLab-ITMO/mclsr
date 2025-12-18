@@ -392,6 +392,23 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
                 negative_embeddings,
             )  # (batch_size, num_negatives)
 
+        # --- FALSE NEGATIVE MASKING (Critical for In-Batch Negatives) ---
+        # If we have item IDs, we must ensure that a positive item for a user 
+        # is not treated as a negative for that same user if it appears 
+        # elsewhere in the batch.
+        if self._positive_ids_prefix and self._negative_ids_prefix:
+            pos_ids = inputs[self._positive_ids_prefix]  # (BatchSize,)
+            neg_ids = inputs[self._negative_ids_prefix]  # (NumNegatives,)
+
+            # Create a boolean mask of shape (BatchSize, NumNegatives)
+            # where True indicates that pos_ids[i] == neg_ids[j]
+            false_negative_mask = (pos_ids.unsqueeze(1) == neg_ids.unsqueeze(0))
+            
+            # Mask out these scores by setting them to a very large negative value
+            # This prevents the model from receiving contradictory signals 
+            # (trying to both increase and decrease the score of the same item).
+            negative_scores = negative_scores.masked_fill(false_negative_mask, -1e12)
+
         if self._use_logq:
             if self._logq_prefix is not None:
                 # Retrieve log probabilities (log frequencies) from the input dictionary
