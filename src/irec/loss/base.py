@@ -331,6 +331,8 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
         queries_prefix,
         positive_prefix,
         negative_prefix,
+        positive_ids_prefix=None,
+        negative_ids_prefix=None,
         output_prefix=None,
         use_logq_correction=False,
         logq_prefix=None,
@@ -339,7 +341,10 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
         self._queries_prefix = queries_prefix
         self._positive_prefix = positive_prefix
         self._negative_prefix = negative_prefix
-        positive_ids_prefix=None,
+
+        self._positive_ids_prefix = positive_ids_prefix 
+        self._negative_ids_prefix = negative_ids_prefix
+
         self._output_prefix = output_prefix
         self._use_logq = use_logq_correction
         self._logq_prefix = logq_prefix
@@ -351,6 +356,7 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
             positive_prefix=config['positive_prefix'],
             negative_prefix=config['negative_prefix'],
             positive_ids_prefix=config.get('positive_ids_prefix'),
+            negative_ids_prefix=config.get('negative_ids_prefix'),
             output_prefix=config.get('output_prefix'),
             use_logq_correction=config.get('use_logq_correction', False),
             logq_prefix=config.get('logq_prefix')
