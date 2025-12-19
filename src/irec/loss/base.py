@@ -9,6 +9,10 @@ import torch
 import torch.nn as nn
 
 import pickle
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BaseLoss(metaclass=MetaParent):
     pass
@@ -337,6 +341,7 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
         output_prefix=None,
         use_logq_correction=False,
         logq_prefix=None,
+        log_counts=None,
     ):
         super().__init__()
         self._queries_prefix = queries_prefix
@@ -349,9 +354,24 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
         self._output_prefix = output_prefix
         self._use_logq = use_logq_correction
         self._logq_prefix = logq_prefix
+        self._log_counts = log_counts
 
     @classmethod
     def create_from_config(cls, config, **kwargs):
+        log_counts = None
+        path_to_counts = config.get('path_to_item_counts')
+        
+        if path_to_counts and config.get('use_logq_correction'):
+            import pickle
+            with open(path_to_counts, 'rb') as f:
+                counts = pickle.load(f)
+            
+            counts_tensor = torch.tensor(counts, dtype=torch.float32)
+            # Normalize in probability and use logarithm (Google Eq. 3)
+            probs = torch.clamp(counts_tensor / counts_tensor.sum(), min=1e-10)
+            log_counts = torch.log(probs)
+            logger.info(f"Loaded item counts from {path_to_counts} for LogQ correction")
+
         return cls(
             queries_prefix=config['queries_prefix'],
             positive_prefix=config['positive_prefix'],
@@ -360,7 +380,8 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
             negative_ids_prefix=config.get('negative_ids_prefix'),
             output_prefix=config.get('output_prefix'),
             use_logq_correction=config.get('use_logq_correction', False),
-            logq_prefix=config.get('logq_prefix')
+            logq_prefix=config.get('logq_prefix'),
+            log_counts=log_counts  # <-- ПЕРЕДАЕМ В КОНСТРУКТОР
         )
 
     def forward(self, inputs):
