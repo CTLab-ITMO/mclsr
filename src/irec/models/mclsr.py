@@ -375,6 +375,21 @@ class MCLSRModel(TorchModel, config_name='mclsr'):
 
                 'negative_representation': negative_embeddings,
 
+
+                # --- ID PASS-THROUGH FOR LOGQ & MASKING ---
+                # We pass raw item and user indices to enable advanced loss operations:
+                # 1. False Negative Masking: Allows SamplesSoftmaxLoss to identify and 
+                #    neutralize cases where a target item accidentally appears in the 
+                #    negative sampling pool.
+                # 2. Per-item LogQ Correction: Enables mapping item IDs to global frequency 
+                #    stats (item_counts.pkl) to remove popularity bias (Sampling Bias).
+                'positive_ids': labels,       # Item target indices
+                'negative_ids': negative_ids, # Sampled negative item indices
+                
+                # Useful for potential User-level LogQ correction as requested 
+                # by the supervisor to handle highly active users.
+                'user_ids': user_ids, 
+
                 # for L_IL (formula 8)
 
                 'sequential_representation': sequential_representation_proj,
