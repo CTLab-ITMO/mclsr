@@ -106,21 +106,55 @@
     ],
     "output_prefix": "loss"
   },
-  "callback": {
-    "type": "composite",
-    "callbacks": [
-      {
-        "type": "validation",
-        "on_step": 64,
-        "pred_prefix": "predictions",
-        "labels_prefix": "labels",
-        "metrics": {
-          "ndcg@20": { "type": "mclsr-ndcg", "k": 20 },
-          "ndcg@50": { "type": "mclsr-ndcg", "k": 50 },
-          "recall@20": { "type": "mclsr-recall", "k": 20 },
-          "recall@50": { "type": "mclsr-recall", "k": 50 }
-        }
+"callback": {
+  "type": "composite",
+  "callbacks": [
+    {
+      "type": "metric",
+      "on_step": 1,
+      "loss_prefix": "loss"
+    },
+    {
+      "type": "metric",
+      "on_step": 1,
+      "loss_prefix": "downstream_loss"
+    },
+    {
+      "type": "validation",
+      "on_step": 64,
+      "pred_prefix": "predictions",
+      "labels_prefix": "labels",
+      "metrics": {
+        "ndcg@5": { "type": "mclsr-ndcg", "k": 5 },
+        "ndcg@10": { "type": "mclsr-ndcg", "k": 10 },
+        "ndcg@20": { "type": "mclsr-ndcg", "k": 20 },
+        "ndcg@50": { "type": "mclsr-ndcg", "k": 50 },
+        "recall@5": { "type": "mclsr-recall", "k": 5 },
+        "recall@10": { "type": "mclsr-recall", "k": 10 },
+        "recall@20": { "type": "mclsr-recall", "k": 20 },
+        "recall@50": { "type": "mclsr-recall", "k": 50 },
+        "hit@20": { "type": "mclsr-hit", "k": 20 },
+        "hit@50": { "type": "mclsr-hit", "k": 50 }
       }
-    ]
-  }
+    },
+    {
+      "type": "eval",
+      "on_step": 256,
+      "pred_prefix": "predictions",
+      "labels_prefix": "labels",
+      "metrics": {
+        "ndcg@5": { "type": "mclsr-ndcg", "k": 5 },
+        "ndcg@10": { "type": "mclsr-ndcg", "k": 10 },
+        "ndcg@20": { "type": "mclsr-ndcg", "k": 20 },
+        "ndcg@50": { "type": "mclsr-ndcg", "k": 50 },
+        "recall@5": { "type": "mclsr-recall", "k": 5 },
+        "recall@10": { "type": "mclsr-recall", "k": 10 },
+        "recall@20": { "type": "mclsr-recall", "k": 20 },
+        "recall@50": { "type": "mclsr-recall", "k": 50 },
+        "hit@20": { "type": "mclsr-hit", "k": 20 },
+        "hit@50": { "type": "mclsr-hit", "k": 50 }
+      }
+    }
+]
+}
 }
