@@ -1,3 +1,6 @@
+# use
+# python scripts/generate_item_counts.py     --input ./data/Clothing/train_sasrec.txt     --output ./data/Clothing/item_counts.pkl     --num_items 23033
+
 import pickle
 import numpy as np
 from collections import Counter
