@@ -8,6 +8,7 @@ from irec.utils import (
 import torch
 import torch.nn as nn
 
+import pickle
 
 class BaseLoss(metaclass=MetaParent):
     pass
@@ -415,28 +416,36 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
             # (trying to both increase and decrease the score of the same item).
             negative_scores = negative_scores.masked_fill(false_negative_mask, -1e12)
 
+        # --- 2. UNBIASED LOGQ CORRECTION ---
+        # Applying correction to EACH logit per Google Paper (Eq. 3)
         if self._use_logq:
-            if self._logq_prefix is not None:
-                # Retrieve log probabilities (log frequencies) from the input dictionary
-                # Expects a tensor of shape (BatchSize, 1 + NumNegatives)
-                log_q = inputs[self._logq_prefix]        # (B, 1 + N)
-                log_q_pos = log_q[:, :1]                 # (B, 1)
-                log_q_neg = log_q[:, 1:]                 # (B, N)
-
-                # --- CORRECTION BASED ON GOOGLE PAPER (Eq. 3 & Section 3) ---
-                # According to "Sampling-Bias-Corrected Neural Modeling for Large Corpus 
-                # Item Recommendations" (Google, 2019), Section 3 "MODELING FRAMEWORK":
+            # Source of truth: our pre-loaded self._log_counts from the pickle
+            if self._log_counts is not None:
+                if self._log_counts.device != positive_scores.device:
+                    self._log_counts = self._log_counts.to(positive_scores.device)
+                
+                # We need IDs to fetch the correct frequencies for items in this batch
+                pos_ids = inputs[self._positive_ids_prefix]
+                neg_ids = inputs[self._negative_ids_prefix]
+                
+                log_q_pos = self._log_counts[pos_ids].unsqueeze(-1)  # (B, 1)
+                log_q_neg = self._log_counts[neg_ids]               # (N,) or (B, N)
+                
+                # --- LOGQ CORRECTION COMMENTS ---
+                # According to "Sampling-Bias-Corrected Neural Modeling..." (Google, 2019):
                 # "we correct EACH logit s(x_i, y_j) by the following equation: 
                 # s_c(x_i, y_j) = s(x_i, y_j) - log(p_j)"
-                # 
-                # Applying this correction to BOTH positive and negative scores is critical 
-                # to obtain an unbiased estimator for the full softmax. Omitting the 
-                # correction for positive_scores leads to a sampling bias where 
-                # popular items are unfairly penalized only when they act as negatives, 
-                # but not when they act as positives.
+                # This ensures the estimator remains unbiased by penalizing popular 
+                # items equally when they are targets and when they are negatives.
                 
                 positive_scores = positive_scores - log_q_pos
                 negative_scores = negative_scores - log_q_neg
+            
+            # (Optional) If frequencies were passed directly in inputs, not via pickle:
+            elif self._logq_prefix in inputs:
+                log_q = inputs[self._logq_prefix]
+                positive_scores = positive_scores - log_q[:, :1]
+                negative_scores = negative_scores - log_q[:, 1:]
 
         all_scores = torch.cat(
             [positive_scores, negative_scores],
