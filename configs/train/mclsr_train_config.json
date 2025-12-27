@@ -1,6 +1,6 @@
 {
   "experiment_name": "mclsr_Clothing",
-  "use_wandb": true,
+  "use_wandb": false,
   "best_metric": "validation/ndcg@20",
   "dataset": {
     "type": "graph",

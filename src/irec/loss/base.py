@@ -8,6 +8,7 @@ from irec.utils import (
 import torch
 import torch.nn as nn
 
+
 import pickle
 import os
 import logging
@@ -328,9 +329,77 @@ class SASRecLoss(TorchLoss, config_name='sasrec'):
 
         return loss
     
-# sasrec logq debug
 
 class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
+    def __init__(
+        self,
+        queries_prefix,
+        positive_prefix,
+        negative_prefix,
+        output_prefix=None,
+    ):
+        super().__init__()
+        self._queries_prefix = queries_prefix
+        self._positive_prefix = positive_prefix
+        self._negative_prefix = negative_prefix
+        self._output_prefix = output_prefix
+
+    def forward(self, inputs):
+        queries_embeddings = inputs[
+            self._queries_prefix
+        ]  # (batch_size, embedding_dim)
+        positive_embeddings = inputs[
+            self._positive_prefix
+        ]  # (batch_size, embedding_dim)
+        negative_embeddings = inputs[
+            self._negative_prefix
+        ]  # (num_negatives, embedding_dim) or (batch_size, num_negatives, embedding_dim)
+
+        # b -- batch_size, d -- embedding_dim
+        positive_scores = torch.einsum(
+            'bd,bd->b',
+            queries_embeddings,
+            positive_embeddings,
+        ).unsqueeze(-1)  # (batch_size, 1)
+
+        if negative_embeddings.dim() == 2:  # (num_negatives, embedding_dim)
+            # b -- batch_size, n -- num_negatives, d -- embedding_dim
+            negative_scores = torch.einsum(
+                'bd,nd->bn',
+                queries_embeddings,
+                negative_embeddings,
+            )  # (batch_size, num_negatives)
+        else:
+            assert (
+                negative_embeddings.dim() == 3
+            )  # (batch_size, num_negatives, embedding_dim)
+            # b -- batch_size, n -- num_negatives, d -- embedding_dim
+            negative_scores = torch.einsum(
+                'bd,bnd->bn',
+                queries_embeddings,
+                negative_embeddings,
+            )  # (batch_size, num_negatives)
+        all_scores = torch.cat(
+            [positive_scores, negative_scores],
+            dim=1,
+        )  # (batch_size, 1 + num_negatives)
+
+        logits = torch.log_softmax(
+            all_scores,
+            dim=1,
+        )  # (batch_size, 1 + num_negatives)
+        loss = (-logits)[:, 0]  # (batch_size)
+        loss = loss.mean()  # (1)
+
+        if self._output_prefix is not None:
+            inputs[self._output_prefix] = loss.cpu().item()
+
+        return loss
+
+    
+# sasrec logq debug
+
+class LogqSamplesSoftmaxLoss(TorchLoss, config_name='logq_sampled_softmax'):
     def __init__(
         self,
         queries_prefix,
@@ -485,6 +554,137 @@ class SamplesSoftmaxLoss(TorchLoss, config_name='sampled_softmax'):
 
         return loss
 
+class MCLSRLogqLoss(TorchLoss, config_name='mclsr_logq_special'):
+    """
+    Specialized Loss for MCLSR model implementing Sampling-Bias Correction (LogQ) 
+    with a tunable lambda coefficient for correction strength.
+    
+    Theory:
+    Following Yi et al. (2019), we correct the sampling bias introduced by non-uniform 
+    negative sampling (e.g., popularity-based or in-batch sampling).
+    
+    Mathematical Formula (Eq. 3 in the paper):
+        s_c(x, y) = s(x, y) - lambda * log(p_j)
+    where p_j is the sampling probability of item j and lambda is the correction strength.
+    """
+    def __init__(
+        self,
+        queries_prefix,
+        positive_prefix,
+        negative_prefix,
+        positive_ids_prefix,
+        negative_ids_prefix,
+        path_to_item_counts,
+        logq_lambda=1.0,  # Strength of the LogQ correction (usually 0.1 to 1.0)
+        output_prefix=None,
+    ):
+        super().__init__()
+        self._queries_prefix = queries_prefix
+        self._positive_prefix = positive_prefix
+        self._negative_prefix = negative_prefix
+        self._positive_ids_prefix = positive_ids_prefix
+        self._negative_ids_prefix = negative_ids_prefix
+        self._output_prefix = output_prefix
+        self._logq_lambda = logq_lambda
+
+        if not os.path.exists(path_to_item_counts):
+            raise FileNotFoundError(f"Item counts file not found at {path_to_item_counts}")
+
+        with open(path_to_item_counts, 'rb') as f:
+            counts = pickle.load(f)
+        
+        counts_tensor = torch.tensor(counts, dtype=torch.float32)
+        
+        # Calculate log probabilities log(p_j). 
+        # Using clamp(min=1e-10) for numerical stability to avoid log(0) -> NaN.
+        probs = torch.clamp(counts_tensor / counts_tensor.sum(), min=1e-10)
+        log_q = torch.log(probs)
+        
+        # register_buffer ensures the lookup table moves to the correct device (GPU/CPU) 
+        # along with the model parameters.
+        self.register_buffer('_log_q_table', log_q)
+
+    @classmethod
+    def create_from_config(cls, config, **kwargs):
+        """Standard framework factory method to initialize the loss from a JSON config."""
+        return cls(
+            queries_prefix=config['queries_prefix'],
+            positive_prefix=config['positive_prefix'],
+            negative_prefix=config['negative_prefix'],
+            positive_ids_prefix=config['positive_ids_prefix'],
+            negative_ids_prefix=config['negative_ids_prefix'],
+            path_to_item_counts=config['path_to_item_counts'],
+            logq_lambda=config.get('logq_lambda', 1.0),
+            output_prefix=config.get('output_prefix')
+        )
+
+    def forward(self, inputs):
+        # Retrieve Embeddings
+        queries = inputs[self._queries_prefix]           # (Batch, Dim)
+        pos_embs = inputs[self._positive_prefix]         # (Batch, Dim)
+        neg_embs = inputs[self._negative_prefix]         # (B, N, D) or (N, D)
+        
+        # Retrieve Item IDs for correction and collision masking
+        pos_ids = inputs[self._positive_ids_prefix]      # (Batch)
+        neg_ids = inputs[self._negative_ids_prefix]      # (Batch, N) or (N)
+
+        # --- DEVICE SYNCHRONIZATION ---
+        # Explicitly ensure the LogQ lookup table is on the same device as the inputs.
+        # This prevents "indices should be on the same device" RuntimeError on CUDA.
+        device = queries.device
+        if self._log_q_table.device != device:
+            self._log_q_table = self._log_q_table.to(device)
+
+        # --- STEP 1: Score Calculation (Inner Product) ---
+        # Positive scores: (Batch, 1)
+        pos_scores = torch.einsum('bd,bd->b', queries, pos_embs).unsqueeze(-1)
+        
+        # Negative scores with dimension check (handles both shared and per-user negatives)
+        if neg_embs.dim() == 2:
+            # Case: Shared negatives across the batch (N, D) -> Result: (B, N)
+            neg_scores = torch.einsum('bd,nd->bn', queries, neg_embs)
+        else:
+            # Case: Individual negatives per user (B, N, D) -> Result: (B, N)
+            neg_scores = torch.einsum('bd,bnd->bn', queries, neg_embs)
+
+        # --- STEP 2: False Negative Masking ---
+        # Prevent contradictory gradients by masking negative samples that match 
+        # the ground truth item ID for a given user.
+        # logic: pos_ids.unsqueeze(1) creates (B, 1) for broadcasting against (B, N) or (1, N)
+        neg_id_comparison = neg_ids.unsqueeze(0) if neg_ids.dim() == 1 else neg_ids
+        false_negative_mask = (pos_ids.unsqueeze(1) == neg_id_comparison)
+        
+        # Mask out scores of false negatives by setting them to a large negative value
+        neg_scores = neg_scores.masked_fill(false_negative_mask, -1e12)
+
+        # --- STEP 3: Tunable LogQ Correction ---
+        # Applying the bias correction as per Google Paper Eq. 3, scaled by lambda.
+        # s_c = s - lambda * log(Q)
+        log_q_pos = self._log_q_table[pos_ids].unsqueeze(-1) # (B, 1)
+        
+        if neg_ids.dim() == 1:
+            # Case: Shared negative IDs
+            log_q_neg = self._log_q_table[neg_ids].unsqueeze(0) # (1, N)
+        else:
+            # Case: Individual negative IDs
+            log_q_neg = self._log_q_table[neg_ids]              # (B, N)
+
+        # Apply final correction
+        pos_scores = pos_scores - (self._logq_lambda * log_q_pos)
+        neg_scores = neg_scores - (self._logq_lambda * log_q_neg)
+
+        # --- STEP 4: Softmax Loss Calculation ---
+        # Concatenate positive and negative scores: (B, 1 + N)
+        all_scores = torch.cat([pos_scores, neg_scores], dim=1)
+        
+        # Cross-Entropy using log_softmax for numerical stability
+        loss = -torch.log_softmax(all_scores, dim=1)[:, 0]
+        
+        final_loss = loss.mean()
+        if self._output_prefix:
+            inputs[self._output_prefix] = final_loss.cpu().item()
+            
+        return final_loss
 
 class S3RecPretrainLoss(TorchLoss, config_name='s3rec_pretrain'):
     def __init__(
