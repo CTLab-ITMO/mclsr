@@ -10,7 +10,7 @@ class MCLSRTrainSampler(TrainSampler):
         self._num_users = num_users
         self._num_items = num_items
         self._num_negatives = num_negatives
-        self._all_items_set = set(range(1, num_items))
+        self._all_items_set = set(range(1, num_items + 1))
         self._user_to_all_seen_items = user_to_all_seen_items
 
     def __getitem__(self, index):

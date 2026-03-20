@@ -105,14 +105,14 @@ class BaseSequenceDataset(BaseDataset):
             valid_targets_max_user,
             test_history_max_user,
             test_targets_max_user
-        ) + 1  # +1 because we start from 0
+        )
         num_items = max(
             train_max_item,
             valid_history_max_item,
             valid_targets_max_item,
             test_history_max_item,
             test_targets_max_item
-        ) + 1  # +1 because we start from 0
+        )
 
         super().__init__(
             num_items=num_items,
