@@ -136,7 +136,7 @@ def main():
     LOGGER.debug('Saving model...')
     ensure_checkpoints_dir()
     checkpoint_path = f'./checkpoints/{EXPERIMENT_NAME}_best_state.pth'
-    torch.save(best_model.state_dict(), checkpoint_path)
+    torch.save(best_model, checkpoint_path)
     LOGGER.debug(f'Model saved as {checkpoint_path}')
 
 
