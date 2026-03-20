@@ -40,8 +40,8 @@ class NDCGMetric(BaseMetric):
         self._k = k
 
     def __call__(self, inputs):
-        predictions = inputs['predicted_ids'][:, :self._k].float()  # (batch_size, k)
-        labels_flat = inputs['target.ids']  # (batch_size)
+        predictions = inputs['predicted_ids'][:, :self._k]  # (batch_size, k)
+        labels_flat = inputs['target.ids']  # (total_labels,)
         labels_lengths = inputs['target.length']  # (batch_size)
         assert predictions.shape[0] == labels_lengths.shape[0]
 
@@ -53,11 +53,11 @@ class NDCGMetric(BaseMetric):
         positions = torch.arange(2, self._k + 2, device=predictions.device)
         weights = 1. / torch.log2(positions.float())
 
-        is_hit = (predictions[:, :, None] == padded_labels[:, None, :]).sum(dim=-1)  # (batch_size, k)
+        is_hit = (predictions[:, :, None] == padded_labels[:, None, :]).any(dim=-1)  # (batch_size, k)
 
         num_ideal_hits = torch.minimum(labels_lengths, torch.as_tensor(self._k, device=labels_lengths.device, dtype=labels_lengths.dtype))  # (batch_size)
         ideal_mask = (torch.arange(self._k, device=is_hit.device, dtype=weights.dtype)[None, :].tile(dims=[batch_size, 1]) < num_ideal_hits[:, None])  # (batch_size, k)
-        
+
         dcg = (is_hit.float() * weights).sum(dim=-1)  # (batch_size)
         idcg = (ideal_mask.float() * weights).sum(dim=-1)  # (batch_size)
 
@@ -72,7 +72,7 @@ class RecallMetric(BaseMetric):
 
     def __call__(self, inputs):
         predictions = inputs['predicted_ids'][:, :self._k] # (batch_size, k)
-        labels_flat = inputs['target.ids']  # (batch_size)
+        labels_flat = inputs['target.ids']  # (total_labels,)
         labels_lengths = inputs['target.length'] # (batch_size)
 
         assert predictions.shape[0] == labels_lengths.shape[0]
@@ -80,9 +80,9 @@ class RecallMetric(BaseMetric):
         padded_labels, labels_mask = create_masked_tensor(data=labels_flat, lengths=labels_lengths)
         padded_labels[~labels_mask] = -1
 
-        is_hit = (predictions[:, :, None] == padded_labels[:, None, :]).sum(dim=-1).float()  # (batch_size, k)
-        recall = is_hit.sum(dim=-1) / torch.minimum(labels_lengths, torch.as_tensor(self._k, device=labels_lengths.device, dtype=labels_lengths.dtype))  # (batch_size)
-        
+        is_hit = (predictions[:, :, None] == padded_labels[:, None, :]).any(dim=-1).float()  # (batch_size, k)
+        recall = is_hit.sum(dim=-1) / labels_lengths.float()  # (batch_size)
+
         return recall.tolist()
 
 
