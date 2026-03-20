@@ -363,7 +363,7 @@ class MCLSR(BaseModel):
 
             # Mask padding (index 0) and special tokens (index num_items+1 onwards)
             candidate_scores[:, 0] = -torch.inf
-            candidate_scores[:, self._num_items + 1:] = -torch.inf
+            candidate_scores[:, self._num_items:] = -torch.inf
 
             _, indices = torch.topk(
                 candidate_scores,

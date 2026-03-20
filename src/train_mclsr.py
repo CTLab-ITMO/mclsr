@@ -104,8 +104,6 @@ def main():
                 fst_embeddings_prefix="sequential_representation",
                 snd_embeddings_prefix="graph_representation",
                 tau=0.5,
-                normalize_embeddings=True,
-                use_mean=True,
                 output_prefix="contrastive_interest_loss",
             ),
 
@@ -113,8 +111,6 @@ def main():
                 fst_embeddings_prefix="user_graph_user_embeddings",
                 snd_embeddings_prefix="common_graph_user_embeddings",
                 tau=0.5,
-                normalize_embeddings=True,
-                use_mean=True,
                 output_prefix="contrastive_user_feature_loss",
             ),
 
@@ -122,8 +118,6 @@ def main():
                 fst_embeddings_prefix="item_graph_item_embeddings",
                 snd_embeddings_prefix="common_graph_item_embeddings",
                 tau=0.5,
-                normalize_embeddings=True,
-                use_mean=True,
                 output_prefix="contrastive_item_feature_loss",
             ),
         ],
@@ -135,7 +129,6 @@ def main():
     optimizer = Optimizer(
         model=model,
         optimizer=OPTIMIZER,
-        clip_grad_threshold=CLIP_GRAD_THRESHOLD,
         lr=0.001
     )
     
@@ -185,7 +178,7 @@ def main():
     LOGGER.debug('Saving model...')
     ensure_checkpoints_dir()
     checkpoint_path = f'./checkpoints/{EXPERIMENT_NAME}_best_state.pth'
-    torch.save(best_model.state_dict(), checkpoint_path)
+    torch.save(best_model, checkpoint_path)
     LOGGER.debug(f'Model saved as {checkpoint_path}')
 
 
