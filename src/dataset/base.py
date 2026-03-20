@@ -137,7 +137,7 @@ class BaseSequenceDataset(BaseDataset):
                 item_ids = [int(i) for i in parts[1:]][-20:]
 
                 if extended:
-                    for idx in range(1, len(item_ids)):
+                    for idx in range(2, len(item_ids) + 1):
                         item_ids_subsequence = item_ids[:idx]
                         sequences.append({
                             'user.ids': [int(user_id)],

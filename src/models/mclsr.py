@@ -354,12 +354,16 @@ class MCLSR(BaseModel):
             # formula 16: R(u,N) = Top-N((I_s)^T * h_o)
             candidate_embeddings = (
                 self._item_embeddings.weight
-            )  # (num_items, embedding_dim)
+            )  # (num_items + 2, embedding_dim)
             candidate_scores = torch.einsum(
                 'bd,nd->bn',
                 sequential_representation,  # I_s
                 candidate_embeddings,  # all h_v
-            )  # (batch_size, num_items)
+            )  # (batch_size, num_items + 2)
+
+            # Mask padding (index 0) and special tokens (index num_items+1 onwards)
+            candidate_scores[:, 0] = -torch.inf
+            candidate_scores[:, self._num_items + 1:] = -torch.inf
 
             _, indices = torch.topk(
                 candidate_scores,
