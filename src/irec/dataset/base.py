@@ -453,7 +453,6 @@ class GraphDataset(BaseDataset, config_name='graph'):
         return self._convert_sp_mat_to_sp_tensor(graph_matrix).coalesce().to(DEVICE)
 
     def _build_or_load_bipartite_graph(self, graph_dir_path, train_user_interactions, train_item_interactions):
-        # path_to_graph = os.path.join(graph_dir_path, 'general_graph.npz')
         train_suffix = "trainOnly" if self._use_train_data_only else "withValTest"
         filename = f"general_graph_{train_suffix}.npz"
         path_to_graph = os.path.join(graph_dir_path, filename)
@@ -752,4 +751,4 @@ class MCLSRDataset(BaseSequenceDataset, config_name='mclsr'):
         test_sampler = EvalSampler.create_from_config(config['samplers'], dataset=test_dataset, num_users=num_users, num_items=num_items, **kwargs)
 
         return cls(train_sampler, validation_sampler, test_sampler, num_users, num_items, max_seq_len)
-    
+

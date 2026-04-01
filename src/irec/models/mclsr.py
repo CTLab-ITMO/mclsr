@@ -364,9 +364,6 @@ class MCLSRModel(TorchModel, config_name='mclsr'):
             unique_item_graph_items_proj = self._item_projection(unique_item_graph_items)
 
 
-            # negative_ids = inputs['{}.ids'.format(self._negatives_prefix)] # (batch_size, num_negatives)
-            # negative_embeddings = self._item_embeddings(negative_ids) # (batch_size, num_negatives, embedding_dim)
-
             raw_negative_ids = inputs['{}.ids'.format(self._negatives_prefix)] 
             num_negatives = raw_negative_ids.shape[0] // batch_size
             negative_ids = raw_negative_ids.view(batch_size, num_negatives) # (Batch, NumNegs)
@@ -395,8 +392,6 @@ class MCLSRModel(TorchModel, config_name='mclsr'):
                 # Useful for potential User-level LogQ correction as requested 
                 # by the supervisor to handle highly active users.
                 'user_ids': user_ids, 
-
-
 
                 # for L_IL (formula 8)
                 'sequential_representation': sequential_representation_proj,

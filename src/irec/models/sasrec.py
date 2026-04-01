@@ -87,20 +87,6 @@ class SasRecModel(SequentialTorchModel, config_name='sasrec'):
                 index=torch.randint(low=0, high=all_scores.shape[1], size=all_positive_sample_events.shape, device=all_positive_sample_events.device)[..., None]
             )[:, 0]  # (all_batch_items)
 
-            # sample_ids, _ = create_masked_tensor(
-            #     data=all_sample_events,
-            #     lengths=all_sample_lengths
-            # )  # (batch_size, seq_len)
-
-            # sample_ids = torch.repeat_interleave(sample_ids, all_sample_lengths, dim=0)  # (all_batch_events, seq_len)
-
-            # negative_scores = torch.scatter(
-            #     input=all_scores,
-            #     dim=1,
-            #     index=sample_ids,
-            #     src=torch.ones_like(sample_ids) * (-torch.inf)
-            # )  # (all_batch_events, num_items)
-
             return {
                 'positive_scores': positive_scores,
                 'negative_scores': negative_scores
@@ -123,7 +109,6 @@ class SasRecModel(SequentialTorchModel, config_name='sasrec'):
 
 
 class SasRecInBatchModel(SasRecModel, config_name='sasrec_in_batch'):
-
     def __init__(
             self,
             sequence_prefix,

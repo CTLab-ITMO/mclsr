@@ -46,12 +46,3 @@ class TorchDataloader(BaseDataloader, config_name='torch'):
                 **create_config,
             ),
         )
-
-        # return cls(
-        #     dataloader=DataLoader(
-        #         kwargs['dataset'],
-        #         collate_fn=batch_processor,
-        #         pin_memory=True,
-        #         **create_config,
-        #     ),
-        # )
