@@ -296,12 +296,11 @@ class MCLSRLoss(TorchLoss, config_name='mclsr'):
         assert torch.allclose(all_scores[0, 0], positive_scores[0])
         assert torch.allclose(all_scores[-1, -1], positive_scores[-1])
 
-        # Maybe try mean over sequence TODO
         loss = torch.sum(
             torch.log(
                 torch.sigmoid(positive_scores.unsqueeze(1) - negative_scores),
             ),
-        )  # (1)
+        )
 
         if self._output_prefix is not None:
             inputs[self._output_prefix] = loss.cpu().item()

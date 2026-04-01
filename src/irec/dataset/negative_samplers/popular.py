@@ -10,12 +10,6 @@ class PopularNegativeSampler(BaseNegativeSampler, config_name='popular'):
             num_users=num_users,
             num_items=num_items,
         )
-
-        # --- OLD DETERMINISTIC LOGIC ---
-        # self._popular_items = self._items_by_popularity()
-        
-        # --- NEW STOCHASTIC LOGIC FOR LogQ COMPATIBILITY ---
-        # Pre-calculate item probabilities based on global frequency
         self._item_ids, self._probs = self._calculate_item_probabilities()
 
     @classmethod
@@ -25,15 +19,6 @@ class PopularNegativeSampler(BaseNegativeSampler, config_name='popular'):
             num_users=kwargs['num_users'],
             num_items=kwargs['num_items'],
         )
-
-    # --- OLD METHOD: Deterministic sorting ---
-    # def _items_by_popularity(self):
-    #     popularity = Counter()
-    #     for sample in self._dataset:
-    #         for item_id in sample['item.ids']:
-    #             popularity[item_id] += 1
-    #     popular_items = sorted(popularity, key=popularity.get, reverse=True)
-    #     return popular_items
 
     def _calculate_item_probabilities(self):
         """
@@ -50,18 +35,6 @@ class PopularNegativeSampler(BaseNegativeSampler, config_name='popular'):
         probabilities = freqs / freqs.sum()
         
         return items, probabilities
-
-    # --- OLD METHOD: Picking Top-K items sequentially (Deterministic) ---
-    # def generate_negative_samples(self, sample, num_negatives):
-    #     user_id = sample['user.ids'][0]
-    #     popularity_idx = 0
-    #     negatives = []
-    #     while len(negatives) < num_negatives:
-    #         negative_idx = self._popular_items[popularity_idx]
-    #         if negative_idx not in self._seen_items[user_id]:
-    #             negatives.append(negative_idx)
-    #         popularity_idx += 1
-    #     return negatives
 
     def generate_negative_samples(self, sample, num_negatives):
         """

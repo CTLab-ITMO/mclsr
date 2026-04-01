@@ -383,10 +383,6 @@ class GraphDataset(BaseDataset, config_name='graph'):
     ):
         if entity_type not in ['user', 'item']:
             raise ValueError("entity_type must be either 'user' or 'item'")
-        # have to delete and replace to not delete npz each time manually
-        # path_to_graph = os.path.join(self._graph_dir_path, '{}_graph.npz'.format(entity_type))
-
-        # instead better use such construction
 
         # neighborhood_size
         # The neighborhood_size is a filter that constrains the number of edges for each user or 
@@ -422,7 +418,6 @@ class GraphDataset(BaseDataset, config_name='graph'):
                     continue
                 visited_user_item_pairs.add((user_id, item_id)) 
 
-                # TODO look here at review
                 source_entity = user_id if is_user_graph else item_id
                 connection_map = train_item_2_users if is_user_graph else train_user_2_items
                 connection_point = item_id if is_user_graph else user_id
@@ -431,11 +426,6 @@ class GraphDataset(BaseDataset, config_name='graph'):
                     if source_entity == connected_entity:
                         continue
 
-                    pair_key = (source_entity, connected_entity)
-                    # if pair_key in visited_entity_pairs:
-                        # continue
-                    
-                    # visited_entity_pairs.add(pair_key)
                     interactions_fst.append(source_entity)
                     interactions_snd.append(connected_entity)
 
