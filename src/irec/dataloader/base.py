@@ -13,7 +13,7 @@ class BaseDataloader(metaclass=MetaParent):
     pass
 
 
-class TorchDataloader(BaseDataloader, config_name='torch'):
+class TorchDataloader(BaseDataloader, config_name="torch"):
     def __init__(self, dataloader):
         self._dataloader = dataloader
 
@@ -27,20 +27,21 @@ class TorchDataloader(BaseDataloader, config_name='torch'):
     def create_from_config(cls, config, **kwargs):
         create_config = copy.deepcopy(config)
         batch_processor = BaseBatchProcessor.create_from_config(
-            create_config.pop('batch_processor')
-            if 'batch_processor' in create_config
-            else {'type': 'identity'},
+            (
+                create_config.pop("batch_processor")
+                if "batch_processor" in create_config
+                else {"type": "identity"}
+            ),
         )
         create_config.pop(
-            'type',
+            "type",
         )  # For passing as **config in torch DataLoader
 
-        
-        pin_memory = create_config.pop('pin_memory', True)
+        pin_memory = create_config.pop("pin_memory", True)
 
         return cls(
             dataloader=DataLoader(
-                kwargs['dataset'],
+                kwargs["dataset"],
                 collate_fn=batch_processor,
                 pin_memory=pin_memory,
                 **create_config,

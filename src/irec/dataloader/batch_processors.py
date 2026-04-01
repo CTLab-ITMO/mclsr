@@ -7,29 +7,29 @@ class BaseBatchProcessor(metaclass=MetaParent):
         raise NotImplementedError
 
 
-class IdentityBatchProcessor(BaseBatchProcessor, config_name='identity'):
+class IdentityBatchProcessor(BaseBatchProcessor, config_name="identity"):
     def __call__(self, batch):
         return torch.tensor(batch)
 
 
-class BasicBatchProcessor(BaseBatchProcessor, config_name='basic'):
+class BasicBatchProcessor(BaseBatchProcessor, config_name="basic"):
     def __call__(self, batch):
         processed_batch = {}
 
         for key in batch[0].keys():
-            if key.endswith('.ids'):
-                prefix = key.split('.')[0]
-                assert '{}.length'.format(prefix) in batch[0]
+            if key.endswith(".ids"):
+                prefix = key.split(".")[0]
+                assert "{}.length".format(prefix) in batch[0]
 
-                processed_batch[f'{prefix}.ids'] = []
-                processed_batch[f'{prefix}.length'] = []
+                processed_batch[f"{prefix}.ids"] = []
+                processed_batch[f"{prefix}.length"] = []
 
                 for sample in batch:
-                    processed_batch[f'{prefix}.ids'].extend(
-                        sample[f'{prefix}.ids'],
+                    processed_batch[f"{prefix}.ids"].extend(
+                        sample[f"{prefix}.ids"],
                     )
-                    processed_batch[f'{prefix}.length'].append(
-                        sample[f'{prefix}.length'],
+                    processed_batch[f"{prefix}.length"].append(
+                        sample[f"{prefix}.length"],
                     )
 
         for part, values in processed_batch.items():

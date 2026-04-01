@@ -3,7 +3,7 @@ from .popular import PopularNegativeSampler
 from .random import RandomNegativeSampler
 
 __all__ = [
-    'BaseNegativeSampler',
-    'PopularNegativeSampler',
-    'RandomNegativeSampler',
+    "BaseNegativeSampler",
+    "PopularNegativeSampler",
+    "RandomNegativeSampler",
 ]
