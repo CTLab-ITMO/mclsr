@@ -39,7 +39,9 @@ class NextItemPredictionTrainSampler(
         )
 
     def __getitem__(self, index):
-        sample = copy.deepcopy(self._dataset[index])
+        # sample = copy.deepcopy(self._dataset[index])
+        # yes, it's safe
+        sample = self._dataset[index]
 
         item_sequence = sample['item.ids'][:-1]
         next_item_sequence = sample['item.ids'][1:]

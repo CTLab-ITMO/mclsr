@@ -36,9 +36,27 @@ class MCLSRTrainSampler(TrainSampler, config_name='mclsr'):
 
         user_seen = self._user_to_all_seen_items[user_id]
 
-        unseen_items = list(self._all_items_set - user_seen)
+        # unseen_items = list(self._all_items_set - user_seen)        
+        # negatives = random.sample(unseen_items, self._num_negatives)
+
+        # --- OPTIMIZATION: Rejection Sampling ---
+        # Mathematically equivalent to: random.sample(list(all_items - user_seen), k)
+        # Logic: Instead of allocating a huge list of unseen items (O(N) memory),
+        # we draw random indices until we have the required number of unique negatives.
+        # Since |user_seen| << |num_items|, the collision probability is near zero.
+        negatives = set()
+        while len(negatives) < self._num_negatives:
+            # Draw a random item index from the range [1, num_items]
+            candidate = random.randint(1, self._num_items)
+            
+            # Rejection step: Only accept if the user has never interacted with it.
+            # This ensures we only sample from the "unseen" pool.
+            if candidate not in user_seen:
+                negatives.add(candidate)
         
-        negatives = random.sample(unseen_items, self._num_negatives)
+        # Convert back to list to match the expected format for BatchProcessor
+        negatives = list(negatives)
+        # ----------------------------------------
         
 
         return {

@@ -1,3 +1,5 @@
+
+# Steps on local machine
 <p align="center">
    <a>
       <img src="./assets/irec_logo.png" alt="cool irec logo" width="40%" height="40%">
@@ -38,26 +40,6 @@
    **For production**
    ```bash
    uv sync --frozen
-   ```
-
-### Using pip
-
-1. Create and activate a virtual environment:
-   ```bash
-   python3 -m venv .venv
-   source ./.venv/bin/activate
-   ```
-
-2. Install dependencies:
-
-   **For development:**
-   ```bash
-   pip install -e ".[dev]"
-   ```
-
-   **For production:**
-   ```bash
-   pip install -e .
    ```
 
 ## Preparing datasets

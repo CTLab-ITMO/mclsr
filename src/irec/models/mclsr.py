@@ -363,8 +363,14 @@ class MCLSRModel(TorchModel, config_name='mclsr'):
             unique_common_graph_items_proj = self._item_projection(unique_common_graph_items)
             unique_item_graph_items_proj = self._item_projection(unique_item_graph_items)
 
-            negative_ids = inputs['{}.ids'.format(self._negatives_prefix)] # (batch_size, num_negatives)
-            negative_embeddings = self._item_embeddings(negative_ids) # (batch_size, num_negatives, embedding_dim)
+
+            # negative_ids = inputs['{}.ids'.format(self._negatives_prefix)] # (batch_size, num_negatives)
+            # negative_embeddings = self._item_embeddings(negative_ids) # (batch_size, num_negatives, embedding_dim)
+
+            raw_negative_ids = inputs['{}.ids'.format(self._negatives_prefix)] 
+            num_negatives = raw_negative_ids.shape[0] // batch_size
+            negative_ids = raw_negative_ids.view(batch_size, num_negatives) # (Batch, NumNegs)
+            negative_embeddings = self._item_embeddings(negative_ids) # (Batch, NumNegs, Dim)
 
             # import code; code.interact(local=locals())
 
@@ -375,7 +381,7 @@ class MCLSRModel(TorchModel, config_name='mclsr'):
 
                 'negative_representation': negative_embeddings,
 
-
+                
                 # --- ID PASS-THROUGH FOR LOGQ & MASKING ---
                 # We pass raw item and user indices to enable advanced loss operations:
                 # 1. False Negative Masking: Allows SamplesSoftmaxLoss to identify and 
@@ -390,8 +396,9 @@ class MCLSRModel(TorchModel, config_name='mclsr'):
                 # by the supervisor to handle highly active users.
                 'user_ids': user_ids, 
 
-                # for L_IL (formula 8)
 
+
+                # for L_IL (formula 8)
                 'sequential_representation': sequential_representation_proj,
                 'graph_representation': graph_representation_proj,
 

@@ -1,5 +1,5 @@
 {
-  "experiment_name": "mclsr_logq_lambda0.2_Clothing",
+  "experiment_name": "mclsr_random_logq_v0.1_Clothing_1903",
   "use_wandb": false,
   "best_metric": "validation/ndcg@20",
   "dataset": {
@@ -29,7 +29,8 @@
         "type": "basic" 
       },
       "drop_last": true,
-      "shuffle": true
+      "shuffle": true,
+      "pin_memory": true
     },
     "validation": {
       "type": "torch",
@@ -38,7 +39,8 @@
         "type": "basic"
       },
       "drop_last": false,
-      "shuffle": false
+      "shuffle": false,
+      "pin_memory": true
     }
   },
   "model": {
@@ -70,13 +72,10 @@
         "queries_prefix": "combined_representation",
         "positive_prefix": "label_representation",
         "negative_prefix": "negative_representation", 
-        
-        "path_to_item_counts": "./data/Clothing/item_counts.pkl",
         "positive_ids_prefix": "positive_ids",
         "negative_ids_prefix": "negative_ids",
-        
-        "logq_lambda": 0.2,
-        
+        "path_to_item_counts": "./data/Clothing/item_counts.pkl",
+        "logq_lambda": 1.0,
         "output_prefix": "downstream_loss",
         "weight": 1.0
       },
