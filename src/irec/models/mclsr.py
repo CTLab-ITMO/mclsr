@@ -5,6 +5,8 @@ import torch.nn as nn
 
 from irec.utils import create_masked_tensor
 
+torch.backends.cudnn.benchmark = True
+
 
 class MCLSRModel(TorchModel, config_name="mclsr"):
     def __init__(
@@ -352,10 +354,34 @@ class MCLSRModel(TorchModel, config_name="mclsr"):
                 all_sample_events, return_inverse=True
             )
 
+            # OLD BAD
+            # try:
+            #     from torch_scatter import scatter_mean
+            # except ImportError:
+            #     # print("Warning: torch_scatter not found. Using a slower fallback function.")
+            #     def scatter_mean(src, index, dim=0, dim_size=None):
+            #         out_size = dim_size if dim_size is not None else index.max() + 1
+            #         out = torch.zeros((out_size, src.size(1)), dtype=src.dtype, device=src.device)
+            #         counts = torch.bincount(index, minlength=out_size).unsqueeze(-1).clamp(min=1)
+            #         return out.scatter_add_(dim, index.unsqueeze(-1).expand_as(src), src) / counts
+
+            # --- OPTIMIZED AGGREGATION: scatter_mean ---
+            # We use scatter_mean to aggregate features of unique items within a batch
+            # for Item-level Feature Contrastive Learning.
+            #
+            # Performance Note:
+            # We prioritize the 'torch-scatter' library because it provides highly optimized
+            # C++/CUDA kernels that perform in-place aggregation.
+            #
+            # The 'except ImportError' fallback is provided for environment compatibility,
+            # but it is NOT recommended for large-scale datasets like Amazon Books.
+            # The fallback implementation uses 'expand_as', which creates massive temporary
+            # tensors in GPU memory, potentially leading to Out-Of-Memory (OOM) errors
+            # when processing millions of interaction events.
             try:
                 from torch_scatter import scatter_mean
             except ImportError:
-                # print("Warning: torch_scatter not found. Using a slower fallback function.")
+
                 def scatter_mean(src, index, dim=0, dim_size=None):
                     out_size = dim_size if dim_size is not None else index.max() + 1
                     out = torch.zeros(
@@ -366,6 +392,7 @@ class MCLSRModel(TorchModel, config_name="mclsr"):
                         .unsqueeze(-1)
                         .clamp(min=1)
                     )
+                    # WARNING: .expand_as() below is a memory bottleneck for large tensors
                     return (
                         out.scatter_add_(dim, index.unsqueeze(-1).expand_as(src), src)
                         / counts
@@ -391,6 +418,9 @@ class MCLSRModel(TorchModel, config_name="mclsr"):
             unique_item_graph_items_proj = self._item_projection(
                 unique_item_graph_items
             )
+
+            # negative_ids = inputs['{}.ids'.format(self._negatives_prefix)] # (batch_size, num_negatives)
+            # negative_embeddings = self._item_embeddings(negative_ids) # (batch_size, num_negatives, embedding_dim)
 
             raw_negative_ids = inputs["{}.ids".format(self._negatives_prefix)]
             num_negatives = raw_negative_ids.shape[0] // batch_size
