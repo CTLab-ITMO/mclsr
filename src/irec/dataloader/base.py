@@ -13,21 +13,6 @@ class BaseDataloader(metaclass=MetaParent):
     pass
 
 
-import copy
-
-from irec.utils import MetaParent
-from .batch_processors import BaseBatchProcessor
-
-import logging
-from torch.utils.data import DataLoader
-
-logger = logging.getLogger(__name__)
-
-
-class BaseDataloader(metaclass=MetaParent):
-    pass
-
-
 class TorchDataloader(BaseDataloader, config_name="torch"):
     def __init__(self, dataloader):
         self._dataloader = dataloader
@@ -62,3 +47,12 @@ class TorchDataloader(BaseDataloader, config_name="torch"):
                 **create_config,
             ),
         )
+
+        # return cls(
+        #     dataloader=DataLoader(
+        #         kwargs['dataset'],
+        #         collate_fn=batch_processor,
+        #         pin_memory=True,
+        #         **create_config,
+        #     ),
+        # )
