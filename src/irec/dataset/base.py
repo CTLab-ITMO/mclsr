@@ -564,19 +564,23 @@ class GraphDataset(BaseDataset, config_name="graph"):
         return torch.sparse.FloatTensor(index, data, torch.Size(coo.shape))
 
     @staticmethod
-    def _filter_matrix_by_top_k(matrix, k):
-        mat = matrix.tolil()
+    def filter_matrix_by_top_k(matrix, k):
+        mat = matrix.tocsr()
 
         for i in range(mat.shape[0]):
-            if len(mat.rows[i]) <= k:
-                continue
-            data = np.array(mat.data[i])
+            start = mat.indptr[i]
+            end = mat.indptr[i + 1]
 
-            top_k_indices = np.argpartition(data, -k)[-k:]
-            mat.data[i] = [mat.data[i][j] for j in top_k_indices]
-            mat.rows[i] = [mat.rows[i][j] for j in top_k_indices]
+            if end - start > k:
+                row_view = mat.data[start:end]
 
-        return mat.tocsr()
+                threshold = np.partition(row_view, -k)[-k]
+
+                row_view[row_view < threshold] = 0
+
+        mat.eliminate_zeros()
+
+        return mat
 
     def get_samplers(self):
         return self._dataset.get_samplers()
