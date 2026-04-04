@@ -13,6 +13,21 @@ class BaseDataloader(metaclass=MetaParent):
     pass
 
 
+import copy
+
+from irec.utils import MetaParent
+from .batch_processors import BaseBatchProcessor
+
+import logging
+from torch.utils.data import DataLoader
+
+logger = logging.getLogger(__name__)
+
+
+class BaseDataloader(metaclass=MetaParent):
+    pass
+
+
 class TorchDataloader(BaseDataloader, config_name="torch"):
     def __init__(self, dataloader):
         self._dataloader = dataloader
