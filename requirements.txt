@@ -1,0 +1,12 @@
+numpy~=1.26
+torch~=2.4
+tqdm~=4.66
+scipy~=1.14
+pandas~=2.2
+polars~=1.27
+matplotlib~=3.9
+tensorboard~=2.19
+wandb~=0.19
+jupyterlab~=4.4
+ipykernel~=6.29
+notebook~=7.4

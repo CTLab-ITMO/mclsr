@@ -21,8 +21,8 @@ class TorchModel(nn.Module, BaseModel):
     @torch.no_grad()
     def _init_weights(self, initializer_range):
         for key, value in self.named_parameters():
-            if 'weight' in key:
-                if 'norm' in key:
+            if "weight" in key:
+                if "norm" in key:
                     nn.init.ones_(value.data)
                 else:
                     nn.init.trunc_normal_(
@@ -31,10 +31,10 @@ class TorchModel(nn.Module, BaseModel):
                         a=-2 * initializer_range,
                         b=2 * initializer_range,
                     )
-            elif 'bias' in key:
+            elif "bias" in key:
                 nn.init.zeros_(value.data)
             else:
-                raise ValueError(f'Unknown transformer weight: {key}')
+                raise ValueError(f"Unknown transformer weight: {key}")
 
     @staticmethod
     def _get_last_embedding(embeddings, mask):
@@ -54,12 +54,12 @@ class TorchModel(nn.Module, BaseModel):
         )  # (batch_size, 1, emb_dim)
         last_embeddings = last_embeddings[last_masks]  # (batch_size, emb_dim)
         if not torch.allclose(embeddings[mask][-1], last_embeddings[-1]):
-            logger.debug(f'Embeddings: {embeddings}')
+            logger.debug(f"Embeddings: {embeddings}")
             logger.debug(
-                f'Lengths: {lengths}, max: {lengths.max()}, min: {lengths.min()}',
+                f"Lengths: {lengths}, max: {lengths.max()}, min: {lengths.min()}",
             )
-            logger.debug(f'Last embedding from mask: {embeddings[mask][-1]}')
-            logger.debug(f'Last embedding from gather: {last_embeddings[-1]}')
+            logger.debug(f"Last embedding from mask: {embeddings[mask][-1]}")
+            logger.debug(f"Last embedding from gather: {last_embeddings[-1]}")
             assert False
         return last_embeddings
 
@@ -74,7 +74,7 @@ class SequentialTorchModel(TorchModel):
         num_layers,
         dim_feedforward,
         dropout=0.0,
-        activation='relu',
+        activation="relu",
         layer_norm_eps=1e-5,
         is_causal=True,
     ):
@@ -85,8 +85,7 @@ class SequentialTorchModel(TorchModel):
         self._embedding_dim = embedding_dim
 
         self._item_embeddings = nn.Embedding(
-            num_embeddings=num_items
-            + 2,  # add zero embedding + mask embedding
+            num_embeddings=num_items + 2,  # add zero embedding + mask embedding
             embedding_dim=embedding_dim,
         )
         self._position_embeddings = nn.Embedding(
@@ -135,9 +134,7 @@ class SequentialTorchModel(TorchModel):
             .tile([batch_size, 1])
             .long()
         )  # (batch_size, seq_len)
-        positions_mask = (
-            positions < lengths[:, None]
-        )  # (batch_size, max_seq_len)
+        positions_mask = positions < lengths[:, None]  # (batch_size, max_seq_len)
 
         positions = positions[positions_mask]  # (all_batch_events)
         position_embeddings = self._position_embeddings(
@@ -215,7 +212,9 @@ class SequentialTorchModel(TorchModel):
             dim=0,
             index=torch.cat(
                 [torch.LongTensor([0]).to(DEVICE), lengths + 1],
-            ).cumsum(dim=0)[:-1],
+            ).cumsum(
+                dim=0
+            )[:-1],
         )  # (num_new_items)
         new_items[old_items_mask] = items
         new_length = lengths + 1

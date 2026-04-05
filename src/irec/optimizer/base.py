@@ -5,14 +5,14 @@ from irec.utils import MetaParent
 import torch
 
 OPTIMIZERS = {
-    'sgd': torch.optim.SGD,
-    'adam': torch.optim.Adam,
-    'adamw': torch.optim.AdamW,
+    "sgd": torch.optim.SGD,
+    "adam": torch.optim.Adam,
+    "adamw": torch.optim.AdamW,
 }
 
 SCHEDULERS = {
-    'step': torch.optim.lr_scheduler.StepLR,
-    'cyclic': torch.optim.lr_scheduler.CyclicLR,
+    "step": torch.optim.lr_scheduler.StepLR,
+    "cyclic": torch.optim.lr_scheduler.CyclicLR,
 }
 
 
@@ -20,7 +20,7 @@ class BaseOptimizer(metaclass=MetaParent):
     pass
 
 
-class BasicOptimizer(BaseOptimizer, config_name='basic'):
+class BasicOptimizer(BaseOptimizer, config_name="basic"):
     def __init__(
         self,
         model,
@@ -35,15 +35,15 @@ class BasicOptimizer(BaseOptimizer, config_name='basic'):
 
     @classmethod
     def create_from_config(cls, config, **kwargs):
-        optimizer_cfg = copy.deepcopy(config['optimizer'])
-        optimizer = OPTIMIZERS[optimizer_cfg.pop('type')](
-            kwargs['model'].parameters(),
+        optimizer_cfg = copy.deepcopy(config["optimizer"])
+        optimizer = OPTIMIZERS[optimizer_cfg.pop("type")](
+            kwargs["model"].parameters(),
             **optimizer_cfg,
         )
 
-        if 'scheduler' in config:
-            scheduler_cfg = copy.deepcopy(config['scheduler'])
-            scheduler = SCHEDULERS[scheduler_cfg.pop('type')](
+        if "scheduler" in config:
+            scheduler_cfg = copy.deepcopy(config["scheduler"])
+            scheduler = SCHEDULERS[scheduler_cfg.pop("type")](
                 optimizer,
                 **scheduler_cfg,
             )
@@ -51,10 +51,10 @@ class BasicOptimizer(BaseOptimizer, config_name='basic'):
             scheduler = None
 
         return cls(
-            model=kwargs['model'],
+            model=kwargs["model"],
             optimizer=optimizer,
             scheduler=scheduler,
-            clip_grad_threshold=config.get('clip_grad_threshold', None),
+            clip_grad_threshold=config.get("clip_grad_threshold", None),
         )
 
     def step(self, loss):
@@ -72,7 +72,7 @@ class BasicOptimizer(BaseOptimizer, config_name='basic'):
             self._scheduler.step()
 
     def state_dict(self):
-        state_dict = {'optimizer': self._optimizer.state_dict()}
+        state_dict = {"optimizer": self._optimizer.state_dict()}
         if self._scheduler is not None:
-            state_dict.update({'scheduler': self._scheduler.state_dict()})
+            state_dict.update({"scheduler": self._scheduler.state_dict()})
         return state_dict
