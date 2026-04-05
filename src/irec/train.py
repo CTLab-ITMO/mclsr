@@ -1,3 +1,12 @@
+import os
+import json
+import copy
+import torch
+import wandb
+
+torch.backends.cudnn.benchmark = True
+torch.set_float32_matmul_precision("high")
+
 import irec.utils
 from irec.utils import (
     parse_args,
@@ -14,14 +23,10 @@ from irec.loss import BaseLoss
 from irec.models import BaseModel
 from irec.optimizer import BaseOptimizer
 
-import copy
-import json
-import os
-import torch
-import wandb
+seed_val = 42
+fix_random_seed(seed_val)
 
 logger = create_logger(name=__name__)
-seed_val = 42
 
 
 def train(
